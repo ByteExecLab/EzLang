@@ -22,6 +22,7 @@ Interpreter::Interpreter(std::vector<Token> tokens, std::shared_ptr<Stack> stack
         {TokenType::POP, [this]() { m_stack->pop(); }},
         {TokenType::PEEK, [this]() { m_stack->peek(); }},
         {TokenType::SWAP, [this]() { m_stack->swap(); }},
+        {TokenType::DROP, [this]() { m_stack->drop(); }},
 
         // Binary operations
         {TokenType::ADD, [this]() { executeBinary(TokenType::ADD); }},

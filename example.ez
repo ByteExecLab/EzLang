@@ -1,1 +1,1 @@
-10 0 ? dup + print
+20 10 swap print drop print

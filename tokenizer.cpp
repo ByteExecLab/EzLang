@@ -80,7 +80,7 @@ std::vector<Token> tokenizer::tokenize() {
                         buf += consume();
                     }
                     if (buf == "pop")  tokens.push_back({TokenType::POP});
-                    else if (buf == "drop") tokens.push_back({TokenType::DUP}); // Corrected DROP to DUP
+                    else if (buf == "dup") tokens.push_back({TokenType::DUP}); // Corrected DROP to DUP
                     else if (buf == "peek") tokens.push_back({TokenType::PEEK});
                     else if (buf == "swap") tokens.push_back({TokenType::SWAP});
                     else if (buf == "print")tokens.push_back({TokenType::PRINT});

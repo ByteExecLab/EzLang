@@ -8,7 +8,8 @@
 #include <vector>
 
 enum class TokenType {
-    POP, SWAP, PEEK, DUP, DROP, PRINT, INT_LITERAL, STR_LITERAL,
+    DUP, DROP,
+    POP, SWAP, PEEK, PRINT, INT_LITERAL, STR_LITERAL,
 
     // Control
     IF, ELSE, WHILE, FOR, END,
