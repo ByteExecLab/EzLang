@@ -7,6 +7,7 @@
 #include <utility>
 #include <variant>
 
+using StackValue = std::variant<int, std::string>;
 
 Interpreter::Interpreter(std::vector<Token> tokens, std::shared_ptr<Stack> stack)
     : m_stack(std::move(stack)), m_tokens(std::move(tokens)), m_pos(0) {
@@ -82,7 +83,7 @@ void Interpreter::printVariant(const std::variant<int, std::string>& value) {
  * @return true if the variant holds a value of type T, false otherwise.
  */
 template<typename T>
-bool Interpreter::isOfType(std::variant<int, std::string> &value) {
+bool Interpreter::isOfType(StackValue &value) {
     return std::holds_alternative<T>(value);
 }
 
@@ -103,7 +104,7 @@ bool Interpreter::isOfType(std::variant<int, std::string> &value) {
  * @return The integer value held within the variant.
  * @throws std::runtime_error if the variant does not hold an integer value.
  */
-int Interpreter::GetIntOrThrow(const std::variant<int, std::string> &value) {
+int Interpreter::GetIntOrThrow(const StackValue &value) {
     if (std::holds_alternative<int>(value)) {
         return std::get<int>(value);
     }
@@ -126,7 +127,7 @@ int Interpreter::GetIntOrThrow(const std::variant<int, std::string> &value) {
  * @return The string value held within the variant.
  * @throws std::runtime_error if the variant does not hold a string value.
  */
-std::string Interpreter::GetStringOrThrow(const std::variant<int, std::string> &value) {
+std::string Interpreter::GetStringOrThrow(const StackValue &value) {
     if (std::holds_alternative<std::string>(value)) {
         return std::get<std::string>(value);
     }
@@ -203,7 +204,7 @@ void Interpreter::executePrint() const {
  * stack and then consumes the next 'PUSH' token.
  *
  */
-void Interpreter::executePush(const std::variant<int, std::string> &value) const {
+void Interpreter::executePush(const StackValue &value) const {
     m_stack->push(value);
 }
 
@@ -228,9 +229,9 @@ void Interpreter::executeBinary(const TokenType tokenType) const {
         throw std::runtime_error("[ERROR]: Stack underflow for binary operation");
     }
 
-    std::variant<int, std::string> l_value = m_stack->pop();
-    std::variant<int, std::string> r_value = m_stack->pop();
-    std::variant<int, std::string> result;
+    StackValue l_value = m_stack->pop();
+    StackValue r_value = m_stack->pop();
+    StackValue result;
 
     switch (tokenType) {
         case TokenType::ADD: {
@@ -318,10 +319,10 @@ void Interpreter::executeLogical(const TokenType tokenType) const {
         throw std::runtime_error("[ERROR]: Stack underflow for logical operation");
     }
 
-    auto l_value = m_stack->pop();
-    auto r_value = m_stack->pop();
+    StackValue l_value = m_stack->pop();
+    StackValue r_value = m_stack->pop();
 
-    int result;
+    StackValue result;
 
     switch (tokenType) {
         case TokenType::EQUALS: {
@@ -474,7 +475,7 @@ void Interpreter::executeZeroCheck() const {
         throw std::runtime_error("[ERROR]: Stack underflow for zero check");
     }
 
-    const auto value = m_stack->pop();
+    const StackValue value = m_stack->pop();
     const int int_a = GetIntOrThrow(value);
     m_stack->push(int_a == 0);
 }
