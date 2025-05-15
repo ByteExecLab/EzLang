@@ -83,6 +83,7 @@ std::vector<Token> tokenizer::tokenize() {
                     else if (buf == "swap") tokens.push_back({TokenType::SWAP});
                     else if (buf == "over") tokens.push_back({TokenType::OVER});
                     else if (buf == "nip") tokens.push_back({TokenType::NIP});
+                    else if (buf == "tuck") tokens.push_back({TokenType::TUCK});
 
                     //
                     else if (buf == "print")tokens.push_back({TokenType::PRINT});

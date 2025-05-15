@@ -103,6 +103,19 @@ private:
      */
     void executeNip() const;
 
+    /**
+     * Executes the TUCK operation on the stack.
+     *
+     * The TUCK operation duplicates the top value of the stack and places it two
+     * positions down, rearranging the stack order. This method requires at least
+     * two elements on the stack to perform the operation; otherwise, an exception
+     * is thrown.
+     *
+     * @throws std::runtime_error Thrown if there are fewer than two elements
+     * present on the stack when the method is called.
+     */
+    void executeTuck() const;
+
 
     /**
      * Executes the 'print' operation, printing the value on the top of the stack.

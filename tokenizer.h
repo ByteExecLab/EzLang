@@ -8,7 +8,7 @@
 #include <vector>
 
 enum class TokenType {
-    DUP, DROP, SWAP, OVER, NIP,
+    DUP, DROP, SWAP, OVER, NIP, TUCK,
 
     PRINT, INT_LITERAL, STR_LITERAL,
 
@@ -51,6 +51,7 @@ inline std::string tokenTypeToString(const TokenType type) {
         {TokenType::SWAP, "SWAP"},
         {TokenType::OVER, "OVER"},
         {TokenType::NIP, "NIP"},
+        {TokenType::TUCK, "TUCK"},
         //
         {TokenType::PRINT, "PRINT"},
         {TokenType::INT_LITERAL, "INT_LITERAL"},

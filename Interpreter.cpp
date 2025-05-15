@@ -74,7 +74,6 @@ void Interpreter::printVariant(const std::variant<int, std::string>& value) {
  *
  * @tparam T The type to check for within the variant.  This is a template
  * parameter, so the caller specifies the type they are interested in.
- * @tparam Types A template parameter pack representing the other types that
  * the std::variant can potentially hold.  This is deduced from the
  * variant itself.
  * @param value A const reference to the std::variant to check.  Passing by
@@ -257,6 +256,30 @@ void Interpreter::executeNip() const {
     m_stack->push(top_value);
 }
 
+/**
+ * Executes the TUCK operation on the stack.
+ *
+ * The TUCK operation takes the top two values from the stack, pushes the value
+ * at the top, and then the second value, followed by the original top value
+ * once again. This effectively "tucks" the top value below the second value.
+ *
+ * If there are fewer than two elements on the stack, the function throws a runtime error
+ * indicating insufficient operands.
+ *
+ * @throws std::runtime_error If the stack contains fewer than two elements.
+ */
+void Interpreter::executeTuck() const {
+    if (m_stack->size() < 2) {
+        throw std::runtime_error("Not enough operands for TUCK");
+    }
+
+    const StackValue topValue = m_stack->pop();
+    const StackValue secondValue = m_stack->pop();
+
+    m_stack->push(topValue);
+    m_stack->push(secondValue);
+    m_stack->push(topValue);
+}
 
 /**
  * Executes a binary arithmetic operation (addition, subtraction, multiplication,
