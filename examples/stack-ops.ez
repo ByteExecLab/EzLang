@@ -1,0 +1,18 @@
+; Push value onto the stack
+10 push  ; Stack: [10]
+
+; Duplicate value on the stack
+dup ; Stack: [10, 10]
+
+; Remove value from the stack
+pop ; Stack: [10]
+
+; Peek value on top of the stack
+peek ; Stack: [10]
+
+; Swap values on stack
+5 push ; Stack: [5, 10]
+swap   ; Stack: [10, 5]
+
+; Drop value without returning it
+drop ; Stack: [5]

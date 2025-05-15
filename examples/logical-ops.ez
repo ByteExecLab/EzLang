@@ -1,0 +1,20 @@
+; Equals to
+10 push 5 push = print
+
+; Less than
+5 push 10 push < print
+
+; Less Than or Equal To
+20 push 10 push <= print
+
+; Greater than
+20 push 10 push > print
+
+; Greater Than or Equal To
+10 push 20 push >= print
+
+; Not Equals
+20 push 10 push != print
+
+; ZERO Check
+; ? print
