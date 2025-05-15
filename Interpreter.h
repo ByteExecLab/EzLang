@@ -20,6 +20,7 @@ public:
      *
      * @param tokens A vector of Token objects representing the program to be
      * interpreted. The constructor takes ownership of this vector.
+     * @param stack
      */
     explicit Interpreter(std::vector<Token> tokens, std::shared_ptr<Stack> stack);
 
@@ -114,17 +115,8 @@ private:
      */
     static void printVariant(const std::variant<int, std::string>& value);
 
-    /**
-     * Checks if a std::variant holds a value of a specific type.
-     *
-     * @tparam T The type to check for within the variant.
-     * @tparam Types A template parameter pack representing the other types that
-     * the std::variant can potentially hold.
-     * @param value A const reference to the std::variant to check.
-     * @return true if the variant holds a value of type T, false otherwise.
-     */
-    template<typename T, typename... Types>
-    bool isOfType(const std::variant<T, Types...>& value);
+    template<class T>
+    static bool isOfType(std::variant<int, std::string> &value);
 
 
     /**

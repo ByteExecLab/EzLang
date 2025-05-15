@@ -81,8 +81,8 @@ void Interpreter::printVariant(const std::variant<int, std::string>& value) {
  * modification of the original variant.
  * @return true if the variant holds a value of type T, false otherwise.
  */
-template<typename T, typename... Types>
-bool Interpreter::isOfType(const std::variant<T, Types...>& value) {
+template<typename T>
+bool Interpreter::isOfType(std::variant<int, std::string> &value) {
     return std::holds_alternative<T>(value);
 }
 
@@ -189,7 +189,6 @@ std::optional<Token> Interpreter::peek(size_t offset) {
  *
  */
 void Interpreter::executePrint() const {
-    std::cout << "Stack Size at print: " << m_stack->size() << std::endl;
     const auto print_value = m_stack->peek();
     printVariant(print_value);
 }
@@ -280,21 +279,62 @@ void Interpreter::executeLogical(const TokenType tokenType) const {
         throw std::runtime_error("[ERROR]: Stack underflow for logical operation");
     }
 
-    const auto l_value = m_stack->pop();
-    const auto r_value = m_stack->pop();
+    auto l_value = m_stack->pop();
+    auto r_value = m_stack->pop();
 
-    // TODO: We dont yet support string
-    const int int_a = GetIntOrThrow(l_value);
-    const int int_b = GetIntOrThrow(r_value);
     int result;
 
     switch (tokenType) {
-        case TokenType::EQUALS: result = int_a == int_b; break;
-        case TokenType::LESS_THAN: result = int_a < int_b; break;
-        case TokenType::GREATER_THAN: result = int_a > int_b; break;
-        case TokenType::LESS_THAN_EQUALS: result = int_a <= int_b; break;
-        case TokenType::GREATER_THAN_EQUALS: result = int_a >= int_b; break;
-        case TokenType::NOT_EQUALS: result = int_a != int_b; break;
+        case TokenType::EQUALS: {
+            if (isOfType<std::string>(l_value) && isOfType<std::string>(r_value)) {
+                result = GetStringOrThrow(l_value) == GetStringOrThrow(r_value);
+            }
+            else if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
+                const int int_a = GetIntOrThrow(l_value);
+                const int int_b = GetIntOrThrow(r_value);
+
+                result = int_a == int_b;
+            }
+            else {
+                throw std::runtime_error("[ERROR]: Invalid types for EQUALS operation");
+            }
+            break;
+        }
+        case TokenType::LESS_THAN: {
+            const int int_a = GetIntOrThrow(l_value);
+            const int int_b = GetIntOrThrow(r_value);
+
+            result = int_a < int_b;
+            break;
+        };
+        case TokenType::GREATER_THAN: {
+            const int int_a = GetIntOrThrow(l_value);
+            const int int_b = GetIntOrThrow(r_value);
+
+            result = int_a > int_b;
+            break;
+        }
+        case TokenType::LESS_THAN_EQUALS: {
+            const int int_a = GetIntOrThrow(l_value);
+            const int int_b = GetIntOrThrow(r_value);
+
+            result = int_a <= int_b;
+            break;
+        }
+        case TokenType::GREATER_THAN_EQUALS: {
+            const int int_a = GetIntOrThrow(l_value);
+            const int int_b = GetIntOrThrow(r_value);
+
+            result = int_a >= int_b;
+            break;
+        }
+        case TokenType::NOT_EQUALS: {
+            const int int_a = GetIntOrThrow(l_value);
+            const int int_b = GetIntOrThrow(r_value);
+
+            result = int_a != int_b;
+            break;
+        }
         default: {
             //
         };
@@ -332,7 +372,7 @@ void Interpreter::executeIf() {
     bool inElseBlock = false;
 
     //read all the tokens inside the if and else branches
-    while (m_pos < m_tokens.size() && m_tokens[m_pos].type != TokenType::END) {
+    while (m_pos < m_tokens.size() && (m_tokens[m_pos].type != TokenType::END)) {
         if (m_tokens[m_pos].type == TokenType::ELSE) {
             inElseBlock = true;
             consume(); // Consume else
@@ -347,6 +387,8 @@ void Interpreter::executeIf() {
     if (m_pos >= m_tokens.size() || m_tokens[m_pos].type != TokenType::END) {
         throw std::runtime_error("Expected ENDIF after IF-ELSE block");
     }
+
+    // consume(); // Consume ENDIF
 
     if (conditionIsTrue) {
         // Execute the 'if' branch
@@ -412,14 +454,14 @@ void Interpreter::execute() {
                     consume();
                 }
                 else {
-                    throw std::runtime_error("Unknown token type: " + std::to_string(static_cast<int>(type)));
+                    throw std::runtime_error("Unknown token type: " + tokenTypeToString(type));
                 }
             }
         }
         catch (const std::runtime_error& e) {
             std::cerr << "[ERROR]: " << e.what() << std::endl;
             std::cerr << "m_pos: " << m_pos << ", m_tokens.size(): " << m_tokens.size() << std::endl;
-            std::cerr << "Token type: " << static_cast<int>(type) << std::endl;
+            std::cerr << "Token type: " << tokenTypeToString(type) << std::endl;
             exit(EXIT_FAILURE);
         }
     }
