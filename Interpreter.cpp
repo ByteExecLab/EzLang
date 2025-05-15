@@ -7,8 +7,6 @@
 #include <utility>
 #include <variant>
 
-using StackValue = std::variant<int, std::string>;
-
 Interpreter::Interpreter(std::vector<Token> tokens, std::shared_ptr<Stack> stack)
     : m_stack(std::move(stack)), m_tokens(std::move(tokens)), m_pos(0) {
 
@@ -18,11 +16,12 @@ Interpreter::Interpreter(std::vector<Token> tokens, std::shared_ptr<Stack> stack
 
     executionMap = {
         // Stack operations
+        // TODO: Move below operations to stack class?
         {TokenType::DUP, [this]() { m_stack->dup(); }},
-        {TokenType::POP, [this]() { m_stack->pop(); }},
-        {TokenType::PEEK, [this]() { m_stack->peek(); }},
         {TokenType::SWAP, [this]() { m_stack->swap(); }},
         {TokenType::DROP, [this]() { m_stack->drop(); }},
+        {TokenType::OVER, [this]() { executeOver(); }},
+        {TokenType::NIP, [this] { executeNip(); }},
 
         // Binary operations
         {TokenType::ADD, [this]() { executeBinary(TokenType::ADD); }},
@@ -208,6 +207,56 @@ void Interpreter::executePrint() const {
 void Interpreter::executePush(const StackValue &value) const {
     m_stack->push(value);
 }
+
+/**
+ * Executes the "over" operation on the stack managed by the interpreter.
+ *
+ * The "over" operation duplicates the second-to-top value on the stack,
+ * ensuring that the current top value remains in place. This function
+ * will throw a runtime error if there are fewer than two elements
+ * on the stack, as the operation cannot be completed in such cases.
+ *
+ * @throws std::runtime_error If the stack contains fewer than two elements,
+ * indicating a stack underflow condition.
+ */
+void Interpreter::executeOver() const {
+    if (m_stack->size() < 2) {
+        throw std::runtime_error("[ERROR]: Stack underflow for over operation");
+    }
+
+    const StackValue top_value = m_stack->pop();
+    const StackValue second_value = m_stack->peek();
+
+    m_stack->push(top_value);
+    m_stack->push(second_value);
+}
+
+/**
+ * Executes the "nip" operation on the stack, removing the second-to-top value
+ * while keeping the top value.
+ *
+ * This function operates on the stack referenced by the `Interpreter`. It first
+ * verifies that the stack has at least two elements; if not, a runtime_error
+ * is thrown to indicate stack underflow. The top value is preserved, the second
+ * value is removed, and then the top value is pushed back onto the stack.
+ *
+ * @throws std::runtime_error Thrown if the stack contains fewer than two elements.
+ */
+void Interpreter::executeNip() const {
+    if (m_stack->size() < 2) {
+        throw std::runtime_error("[ERROR]: Stack underflow for nip operation");
+    }
+
+    // Get first value
+    const StackValue top_value = m_stack->pop();
+
+    // Remove second value
+    m_stack->pop();
+
+    // Push the first value back
+    m_stack->push(top_value);
+}
+
 
 /**
  * Executes a binary arithmetic operation (addition, subtraction, multiplication,

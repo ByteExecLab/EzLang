@@ -9,6 +9,8 @@
 #include "Stack.h"
 #include "tokenizer.h"
 
+using StackValue = std::variant<int, std::string>;
+
 class Interpreter {
 public:
     /**
@@ -62,7 +64,7 @@ private:
      * @param offset The offset from the current position.  An offset of 0 (the default)
      * returns the current token, an offset of 1 returns the next token,
      * and so on.  Must be a non-negative value.
-     * @return  An std::optional<Token> representing the token at the specified
+     * @return  A std::optional<Token> representing the token at the specified
      * offset.  If the offset is within the bounds of the token vector,
      * the function returns the token wrapped in an std::optional.
      * If the offset is beyond the end of the token vector, the function
@@ -76,7 +78,30 @@ private:
      * This function retrieves the value associated with the current token
      * and pushes it onto the stack.
      */
-    void executePush(const std::variant<int, std::string> &value) const;
+    void executePush(const StackValue &value) const;
+
+    /**
+     * Executes the "over" operation on the stack.
+     *
+     * This method duplicates the second-to-top value on the stack and pushes it
+     * back onto the stack without altering the original positions of other values.
+     * If the stack contains fewer than two elements, an exception is thrown.
+     *
+     * @throws std::runtime_error If the stack contains fewer than two elements, a stack underflow error is raised.
+     */
+    void executeOver() const;
+
+    /**
+     * Executes the "nip" operation on the stack.
+     *
+     * This method removes the second-to-last value from the stack while preserving
+     * the last value. It ensures that there are at least two values on the stack
+     * before performing the operation. If the stack has fewer than two values,
+     * an exception is thrown.
+     *
+     * @throws std::runtime_error If the stack contains fewer than two values.
+     */
+    void executeNip() const;
 
 
     /**
@@ -98,10 +123,56 @@ private:
     void executeBinary(TokenType tokenType) const;
 
 
+    /**
+     * Executes a logical operation based on the provided token type.
+     *
+     * This method performs a logical comparison between the top two values
+     * on the stack. Depending on the token type, it evaluates conditions such
+     * as equality, inequality, less than, greater than, or their respective
+     * inclusive counterparts. The result of the operation is pushed back onto
+     * the stack. If the stack contains fewer than two elements, or if the types
+     * of the stack values are incompatible for the operation, an exception is thrown.
+     *
+     * @param tokenType The type of logical operation to execute, represented
+     *                  as a `TokenType`. Supported values include equality,
+     *                  inequality, less than, greater than, less than or equal to,
+     *                  and greater than or equal to.
+     */
     void executeLogical(TokenType tokenType) const;
 
+
+    /**
+     * Executes a zero-check operation on the value at the top of the stack.
+     *
+     * This method checks whether the top value of the stack is zero. It pops the top
+     * value from the stack, evaluates it, and then pushes a boolean result indicating
+     * the outcome of the check (true if the value is zero, false otherwise).
+     *
+     * An error is thrown if the stack is empty, indicating a stack underflow during
+     * the zero-check operation.
+     *
+     * @throw std::runtime_error If the stack is empty.
+     */
     void executeZeroCheck() const;
 
+
+    /**
+     * Executes an IF-ELSE conditional block in the interpreted code.
+     *
+     * This method evaluates the condition from the top of the stack and determines
+     * whether to execute the tokens inside the IF branch or the ELSE branch. It
+     * creates a new interpreter for the respective branch and executes the
+     * corresponding set of instructions. If the condition evaluates to true, the
+     * IF branch is executed; otherwise, the ELSE branch (if present) is executed.
+     *
+     * The method ensures tokens are processed correctly, validating the presence
+     * of an END token that marks the end of the conditional block. If the block
+     * is not properly terminated, or if the stack is empty when evaluating the
+     * condition, an exception is thrown.
+     *
+     * @throws std::runtime_error If the stack is empty while evaluating the
+     * condition or if the ENDIF token is missing.
+     */
     void executeIf();
 
     /**
@@ -115,6 +186,15 @@ private:
      */
     static void printVariant(const std::variant<int, std::string>& value);
 
+    /**
+     * Checks if the given StackValue is of a specific type.
+     *
+     * This method determines whether the provided StackValue object
+     * matches the type specified by the template parameter T.
+     *
+     * @param value The StackValue object to check the type of.
+     * @return True if the value matches the specified type, otherwise false.
+     */
     template<class T>
     static bool isOfType(std::variant<int, std::string> &value);
 
@@ -142,8 +222,35 @@ private:
     static std::string GetStringOrThrow(const std::variant<int, std::string>& value);
 
 private:
+    /**
+     * A shared pointer to the internal execution stack of the interpreter.
+     *
+     * This stack is used to manage the state during the interpretation process,
+     * such as maintaining the function call hierarchy, storing intermediate values,
+     * or handling control flows. Ownership of the stack is shared, ensuring proper
+     * memory management across components.
+     */
     std::shared_ptr<Stack> m_stack;
+
+
+    /**
+     * A collection of Token objects that represent the sequence of instructions
+     * or data to be processed by the interpreter.
+     *
+     * This vector serves as the primary storage for the tokens that guide the
+     * behavior of the interpretation or execution process. It maintains the
+     * order of tokens as they are processed during interpretation.
+     */
     std::vector<Token> m_tokens;
+
+
+    /**
+     * Represents the current position or index within a sequence of elements.
+     *
+     * This member variable is used to track the progress of parsing or iterating
+     * through a collection, such as a series of tokens or data. It is initialized
+     * to 0 by default, reflecting the starting position.
+     */
     size_t m_pos = 0;
 };
 

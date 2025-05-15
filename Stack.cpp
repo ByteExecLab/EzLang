@@ -4,15 +4,25 @@
 
 #include "Stack.h"
 
+#include <iostream>
+#include <ostream>
 #include <stdexcept>
 #include <variant>
 
-// Push the value onto the stack
+/**
+ * Pushes a value onto the stack.
+ *
+ * @param value The value to be pushed onto the stack. It can be either an integer or a string.
+ */
 void Stack::push(const std::variant<int, std::string>& value) {
     m_stack.push(value);
 }
 
-// Duplicates the values on top of the stack
+/**
+ * Duplicates the top element of the stack and pushes it onto the stack.
+ *
+ * @throws std::runtime_error If the stack is empty.
+ */
 void Stack::dup() {
     if (m_stack.empty()) {
         throw std::runtime_error("[ERROR]: Stack is empty");
@@ -23,7 +33,12 @@ void Stack::dup() {
     m_stack.push(value);
 }
 
-// Removes the top of the stack and returns
+/**
+ * Removes and returns the top value from the stack.
+ *
+ * @return The top value of the stack, which can be an integer or a string.
+ * @throws std::runtime_error If the stack is empty.
+ */
 std::variant<int, std::string> Stack::pop() {
     if (m_stack.empty()) {
         throw std::runtime_error("[ERROR]: Stack is empty");
@@ -34,7 +49,12 @@ std::variant<int, std::string> Stack::pop() {
     return value;
 }
 
-// Returns the value on top of the stack
+/**
+ * Returns the top value of the stack without removing it.
+ *
+ * @return The top value of the stack, which can be an integer or a string.
+ * @throws std::runtime_error If the stack is empty.
+ */
 std::variant<int, std::string> Stack::peek() {
     if (m_stack.empty()) {
         throw std::runtime_error("[ERROR]: Stack is empty");
@@ -43,7 +63,14 @@ std::variant<int, std::string> Stack::peek() {
     return m_stack.top();
 }
 
-// Swaps the values on top of the stack
+/**
+ * Swaps the top two elements of the stack.
+ *
+ * This method exchanges the positions of the two elements
+ * at the top of the stack without modifying their values.
+ *
+ * @throws std::runtime_error If the stack contains fewer than two elements.
+ */
 void Stack::swap() {
     if (m_stack.size() < 2) {
         throw std::runtime_error("[ERROR]: Stack is empty");
@@ -58,7 +85,13 @@ void Stack::swap() {
     m_stack.push(value2);
 }
 
-// Removes the top of the stack
+/**
+ * Removes the top element from the stack.
+ *
+ * If the stack is empty, an exception is thrown to indicate the error.
+ *
+ * @throws std::runtime_error If the stack is empty.
+ */
 void Stack::drop() {
     if (m_stack.empty()) {
         throw std::runtime_error("[ERROR]: Stack is empty");
@@ -67,12 +100,20 @@ void Stack::drop() {
     m_stack.pop();
 }
 
-// Is stack empty?
+/**
+ * Checks if the stack is empty.
+ *
+ * @return True if the stack has no elements, otherwise false.
+ */
 bool Stack::empty() const {
     return m_stack.empty();
 }
 
-// Get the size of the stack
+/**
+ * Returns the number of elements in the stack.
+ *
+ * @return The number of elements currently stored in the stack.
+ */
 size_t Stack::size() const {
     return m_stack.size();
 }

@@ -35,5 +35,4 @@ int main(int argc, char** argv) {
     Interpreter(tokens, stack).execute();
 
     return EXIT_SUCCESS;
-
 }

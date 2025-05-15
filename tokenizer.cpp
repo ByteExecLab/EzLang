@@ -79,10 +79,12 @@ std::vector<Token> tokenizer::tokenize() {
                     while (peek().has_value() && std::isalnum(peek().value())) {
                         buf += consume();
                     }
-                    if (buf == "pop")  tokens.push_back({TokenType::POP});
-                    else if (buf == "dup") tokens.push_back({TokenType::DUP}); // Corrected DROP to DUP
-                    else if (buf == "peek") tokens.push_back({TokenType::PEEK});
+                    if (buf == "dup") tokens.push_back({TokenType::DUP});
                     else if (buf == "swap") tokens.push_back({TokenType::SWAP});
+                    else if (buf == "over") tokens.push_back({TokenType::OVER});
+                    else if (buf == "nip") tokens.push_back({TokenType::NIP});
+
+                    //
                     else if (buf == "print")tokens.push_back({TokenType::PRINT});
                     else if (buf == "if")   tokens.push_back({TokenType::IF});
                     else if (buf == "else") tokens.push_back({TokenType::ELSE});
