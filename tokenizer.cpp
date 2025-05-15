@@ -50,6 +50,20 @@ std::vector<Token> tokenizer::tokenize() {
                     tokens.push_back({TokenType::GREATER_THAN});
                 }
                 break;
+            case '"':
+                buf += consume(); // Consume the opening quote
+                while (peek().has_value() && peek().value() != '"') {
+                    buf += consume();
+                }
+                if (peek().has_value()) {
+                    consume();
+                    tokens.push_back({TokenType::STR_LITERAL, buf});
+                    buf.clear();
+                } else {
+                    std::cerr << "Unterminated string literal" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                break;
             default:
                 if (std::isalpha(c)) {
                     buf += c;

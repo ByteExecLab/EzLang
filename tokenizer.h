@@ -7,7 +7,7 @@
 #include <vector>
 
 enum class TokenType {
-    PUSH, POP, SWAP, PEEK, DUP, DROP, PRINT, INT_LITERAL,
+    PUSH, POP, SWAP, PEEK, DUP, DROP, PRINT, INT_LITERAL, STR_LITERAL,
 
     // Maths
     ADD, SUB, MUL, DIV, MOD,

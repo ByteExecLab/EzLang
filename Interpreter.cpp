@@ -166,7 +166,7 @@ void Interpreter::executePush() {
     const auto token_value = m_tokens.at(m_pos).value;
     consume();
     if (m_pos < m_tokens.size() && peek()->type == TokenType::PUSH) {
-        m_stack.push(std::get<int>(token_value));
+        m_stack.push(token_value);
         consume();
     }
 }
@@ -306,6 +306,7 @@ void Interpreter::execute() {
     std::map<TokenType, std::function<void()>> executionMap = {
         // Stack operations
         {TokenType::INT_LITERAL, [this]() { executePush(); }},
+        {TokenType::STR_LITERAL, [this]() { executePush(); }},
         {TokenType::DUP, [this]() { consume(); m_stack.dup(); }},
         {TokenType::POP, [this]() {consume(); printVariant(m_stack.pop()); }},
         {TokenType::PEEK, [this]() {consume(); printVariant(m_stack.peek()); }},
