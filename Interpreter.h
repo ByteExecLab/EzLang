@@ -94,7 +94,7 @@ private:
      *
      * @param tokenType The type of binary operation to execute (e.g., ADD, SUB, MUL, DIV, MOD).
      */
-    void executeBinary(TokenType tokenType);
+    void executeBinary(TokenType tokenType) const;
 
 
     void executeLogical(TokenType tokenType) const;

@@ -224,8 +224,7 @@ void Interpreter::executePush(const std::variant<int, std::string> &value) const
  * TokenType::DIV, or TokenType::MOD.
  *
  */
-void Interpreter::executeBinary(const TokenType tokenType) {
-    consume();
+void Interpreter::executeBinary(const TokenType tokenType) const {
     if (m_stack->size() < 2) {
         throw std::runtime_error("[ERROR]: Stack underflow for binary operation");
     }
@@ -313,7 +312,7 @@ void Interpreter::executeLogical(const TokenType tokenType) const {
  * a new Interpreter to execute the appropriate branch.
  */
 void Interpreter::executeIf() {
-    consume();
+    consume(); // consume IF
 
     // Checking if the stack is not empty
     if (m_stack->empty()) {
@@ -329,10 +328,21 @@ void Interpreter::executeIf() {
 
     // Collect tokens
     std::vector<Token> ifBranch;
+    std::vector<Token> elseBranch;
+    bool inElseBlock = false;
 
     //read all the tokens inside the if and else branches
     while (m_pos < m_tokens.size() && m_tokens[m_pos].type != TokenType::END) {
-        ifBranch.push_back(consume());
+        if (m_tokens[m_pos].type == TokenType::ELSE) {
+            inElseBlock = true;
+            consume(); // Consume else
+        }
+        else if (inElseBlock) {
+            elseBranch.push_back(consume());
+        }
+        else {
+            ifBranch.push_back(consume());
+        }
     }
     if (m_pos >= m_tokens.size() || m_tokens[m_pos].type != TokenType::END) {
         throw std::runtime_error("Expected ENDIF after IF-ELSE block");
@@ -343,6 +353,10 @@ void Interpreter::executeIf() {
         Interpreter ifInterpreter(ifBranch, m_stack); // Create a new interpreter for the if branch
         ifInterpreter.executionMap = executionMap;
         ifInterpreter.execute();
+    } else if (inElseBlock) {
+        Interpreter elseInterpreter(elseBranch, m_stack); // Create a new interpreter for the else branch
+        elseInterpreter.executionMap = executionMap;
+        elseInterpreter.execute();
     }
 }
 

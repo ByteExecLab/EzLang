@@ -1,3 +1,7 @@
-5 5 = if
-  "it's 10" print
+10 10 +
+
+20 = if
+  "eq" print
+else
+    "not eq" print
 end
