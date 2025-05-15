@@ -8,7 +8,7 @@
 #include <vector>
 
 enum class TokenType {
-    PUSH, POP, SWAP, PEEK, DUP, DROP, PRINT, INT_LITERAL, STR_LITERAL,
+    POP, SWAP, PEEK, DUP, DROP, PRINT, INT_LITERAL, STR_LITERAL,
 
     // Control
     IF, ELSE, WHILE, FOR, END,
@@ -44,7 +44,6 @@ private:
 
 inline std::string tokenTypeToString(const TokenType type) {
     static std::map<TokenType, std::string> typeStrings = {
-        {TokenType::PUSH, "PUSH"},
         {TokenType::POP, "POP"},
         {TokenType::SWAP, "SWAP"},
         {TokenType::PEEK, "PEEK"},

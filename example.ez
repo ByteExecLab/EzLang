@@ -1,1 +1,1 @@
-"hello, " "World!" swap + print
+10 0 ? dup + print
