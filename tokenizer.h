@@ -28,6 +28,7 @@ class tokenizer {
 
 public:
     explicit tokenizer(std::string source);
+
     std::vector<Token> tokenize();
 
 private:
@@ -35,9 +36,9 @@ private:
     std::optional<char> peek(size_t offset = 0) const;
     char consume();
 
+private:
     std::string m_source;
     size_t m_pos = 0;
-
 };
 
 #endif //TOKENIZER_H

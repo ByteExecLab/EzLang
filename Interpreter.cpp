@@ -40,8 +40,6 @@ Interpreter::Interpreter(std::vector<Token> tokens, std::shared_ptr<Stack> stack
 
         // Control flow
         {TokenType::IF, [this]() { executeIf(); }},
-        // {TokenType::ELSE, [this]() {  }},
-        // {TokenType::END, [this] () { consume(); }},
 
             // Utils
         {TokenType::PRINT, [this]() { executePrint(); }},
@@ -306,6 +304,14 @@ void Interpreter::executeLogical(const TokenType tokenType) const {
     m_stack->push(result);
 }
 
+/*
+ * Executes an IF control flow statement.
+ *
+ * This function pops a condition from the stacks. If the condition is true (non-zero),
+ * it executes the code within the IF block.  It parses the tokens to find the
+ * boundaries of the IF block (and optionally an ELSE block) and then creates
+ * a new Interpreter to execute the appropriate branch.
+ */
 void Interpreter::executeIf() {
     consume();
 

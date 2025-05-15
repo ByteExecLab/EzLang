@@ -5,6 +5,15 @@
 
 tokenizer::tokenizer(std::string source): m_source(std::move(source)) {}
 
+/**
+ * Tokenizes the input string, breaking it down into a sequence of tokens.
+ *
+ * This function iterates through the input string, identifying individual language elements
+ * such as keywords, operators, literals, and identifiers.  It constructs a vector of
+ * Token structures, where each token represents a meaningful unit of the source code.
+ *
+ * @return A vector of Token structures, representing the tokens found in the input string.
+ */
 std::vector<Token> tokenizer::tokenize() {
     std::vector<Token> tokens;
     std::string buf;
@@ -97,6 +106,13 @@ std::vector<Token> tokenizer::tokenize() {
     return tokens;
 }
 
+/**
+ * Look ahead in the input string by a specified offset without consuming characters.
+ *
+ * @param offset The number of characters to look ahead.  Must be non-negative.
+ * @return An optional containing the character at the offset position, or std::nullptr
+ * if the offset goes beyond the end of the input string.
+ */
 std::optional<char> tokenizer::peek(const size_t offset) const {
     if (m_pos + offset >= m_source.size()) {
         return std::nullopt;
@@ -105,6 +121,11 @@ std::optional<char> tokenizer::peek(const size_t offset) const {
     return m_source.at(m_pos + offset);
 }
 
+/**
+ * Consumes the next character from the input string and advances the position.
+ *
+ * @return The character that was consumed.
+ */
 char tokenizer::consume() {
     return m_source.at(m_pos++);
 }

@@ -149,10 +149,10 @@ private:
      */
     static std::string GetStringOrThrow(const std::variant<int, std::string>& value);
 
+private:
     std::shared_ptr<Stack> m_stack;
     std::vector<Token> m_tokens;
     size_t m_pos = 0;
-
 };
 
 #endif //LEXER_H
