@@ -1,2 +1,1 @@
-"hello, " "world!" swap + print
-5 5 * print
+"hello, " 5 swap + print

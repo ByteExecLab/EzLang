@@ -311,7 +311,7 @@ void Interpreter::executeBinary(const TokenType tokenType) const {
  * TokenType::GREATER_THAN, TokenType::LESS_THAN_EQUALS,
  * TokenType::GREATER_THAN_EQUALS, or TokenType::NOT_EQUALS.
  *
- * @throws std::runtime_error if the stack contains fewer than two elements.
+ * @throws std::runtime_error if the stack contains fewer th two elements.
  */
 void Interpreter::executeLogical(const TokenType tokenType) const {
     if (m_stack->size() < 2) {
@@ -335,44 +335,63 @@ void Interpreter::executeLogical(const TokenType tokenType) const {
                 result = int_a == int_b;
             }
             else {
-                throw std::runtime_error("[ERROR]: Invalid types for EQUALS operation");
-            }
-            break;
+                throw std::runtime_error("[ERROR]: Mismatched types for = operation");
+            } break;
         }
         case TokenType::LESS_THAN: {
-            const int int_a = GetIntOrThrow(l_value);
-            const int int_b = GetIntOrThrow(r_value);
+            if (isOfType<std::string>(l_value) && isOfType<std::string>(r_value)) {
+                const int int_a = GetIntOrThrow(l_value);
+                const int int_b = GetIntOrThrow(r_value);
 
-            result = int_a < int_b;
-            break;
+                result = int_a < int_b;
+            }
+            else {
+                throw std::runtime_error("[ERROR]: Mismatched types for < operation");
+            } break;
         };
         case TokenType::GREATER_THAN: {
-            const int int_a = GetIntOrThrow(l_value);
-            const int int_b = GetIntOrThrow(r_value);
+            if (isOfType<std::string>(l_value) && isOfType<std::string>(r_value)) {
+                const int int_a = GetIntOrThrow(l_value);
+                const int int_b = GetIntOrThrow(r_value);
 
-            result = int_a > int_b;
-            break;
+                result = int_a > int_b;
+            }
+            else {
+                throw std::runtime_error("[ERROR]: Mismatched types for > operation");
+            } break;
         }
         case TokenType::LESS_THAN_EQUALS: {
-            const int int_a = GetIntOrThrow(l_value);
-            const int int_b = GetIntOrThrow(r_value);
+            if (isOfType<std::string>(l_value) && isOfType<std::string>(r_value)) {
+                const int int_a = GetIntOrThrow(l_value);
+                const int int_b = GetIntOrThrow(r_value);
 
-            result = int_a <= int_b;
-            break;
+                result = int_a <= int_b;
+            }
+            else {
+                throw std::runtime_error("[ERROR]: Mismatched types for <= operation");
+            } break;
         }
         case TokenType::GREATER_THAN_EQUALS: {
-            const int int_a = GetIntOrThrow(l_value);
-            const int int_b = GetIntOrThrow(r_value);
+            if (isOfType<std::string>(l_value) && isOfType<std::string>(r_value)) {
+                const int int_a = GetIntOrThrow(l_value);
+                const int int_b = GetIntOrThrow(r_value);
 
-            result = int_a >= int_b;
-            break;
+                result = int_a >= int_b;
+            }
+            else {
+                throw std::runtime_error("[ERROR]: Mismatched types for >= operation");
+            } break;
         }
         case TokenType::NOT_EQUALS: {
-            const int int_a = GetIntOrThrow(l_value);
-            const int int_b = GetIntOrThrow(r_value);
+            if (isOfType<std::string>(l_value) && isOfType<std::string>(r_value)) {
+                const int int_a = GetIntOrThrow(l_value);
+                const int int_b = GetIntOrThrow(r_value);
 
-            result = int_a != int_b;
-            break;
+                result = int_a != int_b;
+            }
+            else {
+                throw std::runtime_error("[ERROR]: Mismatched types for != operation");
+            } break;
         }
         default: {
             //
