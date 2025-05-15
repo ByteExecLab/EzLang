@@ -228,29 +228,68 @@ void Interpreter::executeBinary(const TokenType tokenType) const {
         throw std::runtime_error("[ERROR]: Stack underflow for binary operation");
     }
 
-    const auto l_value = m_stack->pop();
-    const auto r_value = m_stack->pop();
-    int result;
-    const int int_a = GetIntOrThrow(l_value);
-    const int int_b = GetIntOrThrow(r_value);
+    std::variant<int, std::string> l_value = m_stack->pop();
+    std::variant<int, std::string> r_value = m_stack->pop();
+    std::variant<int, std::string> result;
 
     switch (tokenType) {
-        case TokenType::ADD: result = int_a + int_b; break;
-        case TokenType::SUB: result = int_a - int_b; break;
-        case TokenType::MUL: result = int_a * int_b; break;
-        case TokenType::DIV: {
-            if (int_b == 0) {
-                throw std::runtime_error("[ERROR]: Division by zero");
+        case TokenType::ADD: {
+            if (isOfType<std::string>(l_value) && isOfType<std::string>(r_value)) {
+                result = GetStringOrThrow(l_value) + GetStringOrThrow(r_value);
             }
-            result = int_a / int_b;
-            break;
+            else if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
+                const int int_a = GetIntOrThrow(l_value);
+                const int int_b = GetIntOrThrow(r_value);
+                result = int_a + int_b;
+            }
+            else {
+                throw std::runtime_error("[ERROR]: Mismatched types for + operation");
+            } break;
+        };
+        case TokenType::SUB: {
+            if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
+                const int int_a = GetIntOrThrow(l_value);
+                const int int_b = GetIntOrThrow(r_value);
+                result = int_a - int_b;
+            } break;
+        }
+        case TokenType::MUL: {
+            if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
+                const int int_a = GetIntOrThrow(l_value);
+                const int int_b = GetIntOrThrow(r_value);
+                result = int_a * int_b;
+            }
+            else {
+                throw std::runtime_error("[ERROR]: Mismatched types for * operation");
+            } break;
+        }
+        case TokenType::DIV: {
+            if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
+                const int int_a = GetIntOrThrow(l_value);
+                const int int_b = GetIntOrThrow(r_value);
+                // Catch division by zero
+                if (int_b == 0) {
+                    throw std::runtime_error("[ERROR]: Division by zero");
+                }
+                result = int_a / int_b;
+            }
+            else {
+                throw std::runtime_error("[ERROR]: Mismatched types for / operation");
+            } break;
         }
         case TokenType::MOD: {
-            if (int_b == 0) {
-                throw std::runtime_error("[ERROR]: Modulo by zero");
+            if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
+                const int int_a = GetIntOrThrow(l_value);
+                const int int_b = GetIntOrThrow(r_value);
+                // Catch division by zero
+                if (int_b == 0) {
+                    throw std::runtime_error("[ERROR]: Modulo by zero");
+                }
+                result = int_a % int_b;
             }
-            result = int_a % int_b;
-            break;
+            else {
+                throw std::runtime_error("[ERROR]: Mismatched types for % operation");
+            } break;
         }
         default: {
             //

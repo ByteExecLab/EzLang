@@ -1,9 +1,2 @@
-; 10 5 >
-; if "First" print else "Second" print end
-
-5 5 =
-if
-    "Third" print
-else
-    "Fourth" print
-end
+"hello, " "world!" swap + print
+5 5 * print
