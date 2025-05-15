@@ -3,6 +3,51 @@
 #include <functional>
 #include <iostream>
 #include <map>
+#include <memory>
+#include <utility>
+#include <variant>
+
+
+Interpreter::Interpreter(std::vector<Token> tokens, std::shared_ptr<Stack> stack)
+    : m_stack(std::move(stack)), m_tokens(std::move(tokens)), m_pos(0) {
+
+    if (!m_stack) {
+        m_stack = std::make_shared<Stack>();
+    }
+
+    executionMap = {
+        // Stack operations
+        {TokenType::DUP, [this]() { m_stack->dup(); }},
+        {TokenType::POP, [this]() { m_stack->pop(); }},
+        {TokenType::PEEK, [this]() { m_stack->peek(); }},
+        {TokenType::SWAP, [this]() { m_stack->swap(); }},
+
+        // Binary operations
+        {TokenType::ADD, [this]() { executeBinary(TokenType::ADD); }},
+        {TokenType::SUB, [this]() { executeBinary(TokenType::SUB); }},
+        {TokenType::MUL, [this]() { executeBinary(TokenType::MUL); }},
+        {TokenType::DIV, [this]() { executeBinary(TokenType::DIV); }},
+        {TokenType::MOD, [this]() { executeBinary(TokenType::MOD); }},
+
+        // Logical Operators
+        {TokenType::EQUALS, [this]() { executeLogical(TokenType::EQUALS); }},
+        {TokenType::LESS_THAN, [this]() { executeLogical(TokenType::LESS_THAN); }},
+        {TokenType::GREATER_THAN, [this]() { executeLogical(TokenType::GREATER_THAN); }},
+        {TokenType::LESS_THAN_EQUALS, [this]() { executeLogical(TokenType::LESS_THAN_EQUALS); }},
+        {TokenType::GREATER_THAN_EQUALS, [this]() { executeLogical(TokenType::GREATER_THAN_EQUALS); }},
+        {TokenType::NOT_EQUALS, [this]() { executeLogical(TokenType::NOT_EQUALS); }},
+        {TokenType::ZERO_CHECK, [this]() { executeZeroCheck(); }},
+
+        // Control flow
+        {TokenType::IF, [this]() { executeIf(); }},
+        // {TokenType::ELSE, [this]() {  }},
+        // {TokenType::END, [this] () { consume(); }},
+
+            // Utils
+        {TokenType::PRINT, [this]() { executePrint(); }},
+    };
+}
+
 
 /**
  * Prints the value held by a std::variant to the standard output stream (std::cout).
@@ -45,7 +90,7 @@ bool Interpreter::isOfType(const std::variant<T, Types...>& value) {
 
 
 /**
- * Retrieves the integer value from a variant, or throws an exception if the variant
+ * Retrieves the integer value from a variant or throws an exception if the variant
  * does not hold an integer.
  *
  * This function attempts to extract the integer value from the provided variant.
@@ -68,7 +113,7 @@ int Interpreter::GetIntOrThrow(const std::variant<int, std::string> &value) {
 }
 
 /**
- * Retrieves the string value from a variant, or throws an exception if the variant
+ * Retrieves the string value from a variant or throws an exception if the variant
  * does not hold a string.
  *
  * This function attempts to extract the string value from the provided variant.
@@ -120,11 +165,11 @@ Token Interpreter::consume() {
  * @param offset The offset from the current position.  An offset of 0 returns
  * the current token, an offset of 1 returns the next token, and
  * so on.  Must be a non-negative value.
- * @return  An std::optional<Token> representing the token at the specified
+ * @return  A std::optional<Token> representing the token at the specified
  * offset.  If the offset is within the bounds of the token vector,
- * the function returns the token wrapped in an std::optional.
+ * the function returns the token wrapped in a std::optional.
  * If the offset is beyond the end of the token vector, the function
- * returns std::nullopt to indicate that there is no token at that
+ * returns std::nullptr to indicate that there is no token at that
  * position.
  */
 std::optional<Token> Interpreter::peek(size_t offset) {
@@ -145,10 +190,9 @@ std::optional<Token> Interpreter::peek(size_t offset) {
  * instruction.  It then consumes the 'print' token.
  *
  */
-void Interpreter::executePrint() {
-    const auto token_value = m_tokens.at(m_pos).value;
-    consume();
-    const auto print_value = m_stack.peek();
+void Interpreter::executePrint() const {
+    std::cout << "Stack Size at print: " << m_stack->size() << std::endl;
+    const auto print_value = m_stack->peek();
     printVariant(print_value);
 }
 
@@ -162,13 +206,8 @@ void Interpreter::executePrint() {
  * stack and then consumes the next 'PUSH' token.
  *
  */
-void Interpreter::executePush() {
-    const auto token_value = m_tokens.at(m_pos).value;
-    consume();
-    if (m_pos < m_tokens.size() && peek()->type == TokenType::PUSH) {
-        m_stack.push(token_value);
-        consume();
-    }
+void Interpreter::executePush(const std::variant<int, std::string> &value) const {
+    m_stack->push(value);
 }
 
 /**
@@ -189,12 +228,12 @@ void Interpreter::executePush() {
  */
 void Interpreter::executeBinary(const TokenType tokenType) {
     consume();
-    if (m_stack.size() < 2) {
+    if (m_stack->size() < 2) {
         throw std::runtime_error("[ERROR]: Stack underflow for binary operation");
     }
 
-    const auto l_value = m_stack.pop();
-    const auto r_value = m_stack.pop();
+    const auto l_value = m_stack->pop();
+    const auto r_value = m_stack->pop();
     int result;
     const int int_a = GetIntOrThrow(l_value);
     const int int_b = GetIntOrThrow(r_value);
@@ -222,7 +261,7 @@ void Interpreter::executeBinary(const TokenType tokenType) {
         };
     }
 
-    m_stack.push(result);
+    m_stack->push(result);
 }
 
 /**
@@ -239,13 +278,13 @@ void Interpreter::executeBinary(const TokenType tokenType) {
  *
  * @throws std::runtime_error if the stack contains fewer than two elements.
  */
-void Interpreter::executeLogical(const TokenType tokenType) {
-    if (m_stack.size() < 2) {
+void Interpreter::executeLogical(const TokenType tokenType) const {
+    if (m_stack->size() < 2) {
         throw std::runtime_error("[ERROR]: Stack underflow for logical operation");
     }
 
-    const auto l_value = m_stack.pop();
-    const auto r_value = m_stack.pop();
+    const auto l_value = m_stack->pop();
+    const auto r_value = m_stack->pop();
 
     // TODO: We dont yet support string
     const int int_a = GetIntOrThrow(l_value);
@@ -264,8 +303,43 @@ void Interpreter::executeLogical(const TokenType tokenType) {
         };
     }
 
-    m_stack.push(result);
+    m_stack->push(result);
 }
+
+void Interpreter::executeIf() {
+    consume();
+
+    // Checking if the stack is not empty
+    if (m_stack->empty()) {
+        throw std::runtime_error("Stack underflow: IF condition");
+    }
+
+    // POP condition from the stacks
+    const auto condition = m_stack->pop();
+    bool conditionIsTrue = false;
+    if (std::holds_alternative<int>(condition)) {
+        conditionIsTrue = (std::get<int>(condition) != 0);
+    }
+
+    // Collect tokens
+    std::vector<Token> ifBranch;
+
+    //read all the tokens inside the if and else branches
+    while (m_pos < m_tokens.size() && m_tokens[m_pos].type != TokenType::END) {
+        ifBranch.push_back(consume());
+    }
+    if (m_pos >= m_tokens.size() || m_tokens[m_pos].type != TokenType::END) {
+        throw std::runtime_error("Expected ENDIF after IF-ELSE block");
+    }
+
+    if (conditionIsTrue) {
+        // Execute the 'if' branch
+        Interpreter ifInterpreter(ifBranch, m_stack); // Create a new interpreter for the if branch
+        ifInterpreter.executionMap = executionMap;
+        ifInterpreter.execute();
+    }
+}
+
 
 /**
  * Executes the ZERO_CHECK operation.
@@ -275,14 +349,14 @@ void Interpreter::executeLogical(const TokenType tokenType) {
  *
  * @throws std::runtime_error if the stack is empty.
  */
-void Interpreter::executeZeroCheck() {
-    if (m_stack.empty()) {
+void Interpreter::executeZeroCheck() const {
+    if (m_stack->empty()) {
         throw std::runtime_error("[ERROR]: Stack underflow for zero check");
     }
 
-    const auto value = m_stack.pop();
+    const auto value = m_stack->pop();
     const int int_a = GetIntOrThrow(value);
-    m_stack.push(int_a == 0);
+    m_stack->push(int_a == 0);
 }
 
 
@@ -303,48 +377,30 @@ void Interpreter::executeZeroCheck() {
  *
  */
 void Interpreter::execute() {
-    std::map<TokenType, std::function<void()>> executionMap = {
-        // Stack operations
-        {TokenType::INT_LITERAL, [this]() { executePush(); }},
-        {TokenType::STR_LITERAL, [this]() { executePush(); }},
-        {TokenType::DUP, [this]() { consume(); m_stack.dup(); }},
-        {TokenType::POP, [this]() {consume(); printVariant(m_stack.pop()); }},
-        {TokenType::PEEK, [this]() {consume(); printVariant(m_stack.peek()); }},
-        {TokenType::SWAP, [this]() {consume(); m_stack.swap(); }},
-
-        // Binary operations
-        {TokenType::ADD, [this]() { consume(); executeBinary(TokenType::ADD); }},
-        {TokenType::SUB, [this]() { consume(); executeBinary(TokenType::SUB); }},
-        {TokenType::MUL, [this]() { consume(); executeBinary(TokenType::MUL); }},
-        {TokenType::DIV, [this]() { consume(); executeBinary(TokenType::DIV); }},
-        {TokenType::MOD, [this]() { consume(); executeBinary(TokenType::MOD); }},
-
-        // Logical Operators
-        {TokenType::EQUALS, [this]() { consume(); executeLogical(TokenType::EQUALS); }},
-        {TokenType::LESS_THAN, [this]() { consume(); executeLogical(TokenType::LESS_THAN); }},
-        {TokenType::GREATER_THAN, [this]() { consume(); executeLogical(TokenType::GREATER_THAN); }},
-        {TokenType::LESS_THAN_EQUALS, [this]() { consume(); executeLogical(TokenType::LESS_THAN_EQUALS); }},
-        {TokenType::GREATER_THAN_EQUALS, [this]() { consume(); executeLogical(TokenType::GREATER_THAN_EQUALS); }},
-        {TokenType::NOT_EQUALS, [this]() { consume(); executeLogical(TokenType::NOT_EQUALS); }},
-        {TokenType::ZERO_CHECK, [this]() { consume(); executeZeroCheck(); }},
-
-            // Utils
-        {TokenType::PRINT, [this]() { executePrint(); }},
-    };
-
     while (m_pos < m_tokens.size()) {
-        TokenType type = m_tokens.at(m_pos).type;
-
+        const auto&[type, value] = m_tokens[m_pos];
         try {
-            if (auto it = executionMap.find(type); it != executionMap.end()) {
-                it->second();
+            // Check for literals first
+            if (type == TokenType::INT_LITERAL || type == TokenType::STR_LITERAL) {
+                executePush(value);
+                consume(); // Consume the literal
             }
             else {
-                throw std::runtime_error("Unknown token type");
+                // Use the map to call the appropriate function.
+                if (auto it = executionMap.find(type); it != executionMap.end()) {
+                    it->second(); // Call the function
+                    consume();
+                }
+                else {
+                    throw std::runtime_error("Unknown token type: " + std::to_string(static_cast<int>(type)));
+                }
             }
         }
         catch (const std::runtime_error& e) {
-            throw std::runtime_error(e.what());
+            std::cerr << "[ERROR]: " << e.what() << std::endl;
+            std::cerr << "m_pos: " << m_pos << ", m_tokens.size(): " << m_tokens.size() << std::endl;
+            std::cerr << "Token type: " << static_cast<int>(type) << std::endl;
+            exit(EXIT_FAILURE);
         }
     }
 }

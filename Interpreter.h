@@ -1,5 +1,8 @@
 #ifndef LEXER_H
 #define LEXER_H
+#include <functional>
+#include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -18,7 +21,7 @@ public:
      * @param tokens A vector of Token objects representing the program to be
      * interpreted. The constructor takes ownership of this vector.
      */
-    explicit Interpreter(std::vector<Token> tokens): m_tokens(std::move(tokens)) {}
+    explicit Interpreter(std::vector<Token> tokens, std::shared_ptr<Stack> stack);
 
 
     /**
@@ -33,6 +36,8 @@ public:
      *
      */
     void execute();
+
+    std::map<TokenType, std::function<void()>> executionMap;
 private:
     /**
      * Retrieves the current token and advances the interpreter's position to the next token.
@@ -70,7 +75,7 @@ private:
      * This function retrieves the value associated with the current token
      * and pushes it onto the stack.
      */
-    void executePush();
+    void executePush(const std::variant<int, std::string> &value) const;
 
 
     /**
@@ -79,7 +84,7 @@ private:
      * This function retrieves the value from the top of the stack and prints it
      * to the standard output.
      */
-    void executePrint();
+    void executePrint() const;
 
     /**
      * Executes a binary arithmetic operation.
@@ -92,9 +97,11 @@ private:
     void executeBinary(TokenType tokenType);
 
 
-    void executeLogical(TokenType tokenType);
+    void executeLogical(TokenType tokenType) const;
 
-    void executeZeroCheck();
+    void executeZeroCheck() const;
+
+    void executeIf();
 
     /**
      * Prints the value held by a std::variant to the standard output stream (std::cout).
@@ -142,7 +149,7 @@ private:
      */
     static std::string GetStringOrThrow(const std::variant<int, std::string>& value);
 
-    Stack m_stack;
+    std::shared_ptr<Stack> m_stack;
     std::vector<Token> m_tokens;
     size_t m_pos = 0;
 

@@ -70,12 +70,16 @@ std::vector<Token> tokenizer::tokenize() {
                     while (peek().has_value() && std::isalnum(peek().value())) {
                         buf += consume();
                     }
-                    if (buf == "push")       tokens.push_back({TokenType::PUSH});
-                    else if (buf == "pop")  tokens.push_back({TokenType::POP});
+                    // if (buf == "push")       tokens.push_back({TokenType::PUSH});
+                    if (buf == "pop")  tokens.push_back({TokenType::POP});
                     else if (buf == "drop") tokens.push_back({TokenType::DUP}); // Corrected DROP to DUP
                     else if (buf == "peek") tokens.push_back({TokenType::PEEK});
                     else if (buf == "swap") tokens.push_back({TokenType::SWAP});
                     else if (buf == "print")tokens.push_back({TokenType::PRINT});
+                    else if (buf == "if")   tokens.push_back({TokenType::IF});
+                    else if (buf == "else") tokens.push_back({TokenType::ELSE});
+                    else if (buf == "while")tokens.push_back({TokenType::WHILE});
+                    else if (buf == "end")  tokens.push_back({TokenType::END});
                     buf.clear();
                 } else if (std::isdigit(c)) {
                     buf += c;

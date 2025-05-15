@@ -1,1 +1,5 @@
-"hello" push 20 push = print
+5 4 <
+
+if
+  10 print
+end

@@ -9,6 +9,9 @@
 enum class TokenType {
     PUSH, POP, SWAP, PEEK, DUP, DROP, PRINT, INT_LITERAL, STR_LITERAL,
 
+    // Control
+    IF, ELSE, WHILE, FOR, END,
+
     // Maths
     ADD, SUB, MUL, DIV, MOD,
 
