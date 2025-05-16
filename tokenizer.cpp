@@ -73,6 +73,10 @@ std::vector<Token> tokenizer::tokenize() {
                     exit(EXIT_FAILURE);
                 }
                 break;
+                case '@': {
+                    tokens.push_back({TokenType::LOAD_VARIABLE});
+                    break;
+                }
             default:
                 if (std::isalpha(c)) {
                     buf += c;
@@ -85,6 +89,8 @@ std::vector<Token> tokenizer::tokenize() {
                     else if (buf == "nip") tokens.push_back({TokenType::NIP});
                     else if (buf == "tuck") tokens.push_back({TokenType::TUCK});
 
+                    // Variables
+                    else if (buf == "const") tokens.push_back({TokenType::CONST});
                     //
                     else if (buf == "print")tokens.push_back({TokenType::PRINT});
                     else if (buf == "if")   tokens.push_back({TokenType::IF});
@@ -92,6 +98,9 @@ std::vector<Token> tokenizer::tokenize() {
                     else if (buf == "while")tokens.push_back({TokenType::WHILE});
                     else if (buf == "do")   tokens.push_back({TokenType::DO});
                     else if (buf == "end")  tokens.push_back({TokenType::END});
+                    else {
+                        tokens.push_back({TokenType::IDENTIFIER, buf});
+                    }
                     buf.clear();
                 } else if (std::isdigit(c)) {
                     buf += c;

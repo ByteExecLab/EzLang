@@ -11,7 +11,10 @@ enum class TokenType {
     DUP, DROP, SWAP, OVER, NIP, TUCK,
 
     // System
-    PRINT, INT_LITERAL, STR_LITERAL,
+    PRINT, INT_LITERAL, STR_LITERAL, IDENTIFIER,
+
+    // Variables
+    CONST, LOAD_VARIABLE,
 
     // Control
     IF, ELSE, WHILE, DO, FOR, END,
@@ -53,6 +56,9 @@ inline std::string tokenTypeToString(const TokenType type) {
         {TokenType::OVER, "OVER"},
         {TokenType::NIP, "NIP"},
         {TokenType::TUCK, "TUCK"},
+        //
+        {TokenType::IDENTIFIER, "IDENTIFIER"},
+        {TokenType::CONST, "CONST"},
         //
         {TokenType::PRINT, "PRINT"},
         {TokenType::INT_LITERAL, "INT_LITERAL"},

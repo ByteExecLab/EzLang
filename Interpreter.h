@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "Memory.h"
 #include "Stack.h"
 #include "tokenizer.h"
 
@@ -188,6 +189,26 @@ private:
      */
     void executeIf();
 
+    /**
+     * Executes a WHILE-DO loop based on the provided tokens.
+     *
+     * This method processes a structured token sequence representing a WHILE-DO
+     * loop. It evaluates the loop condition repeatedly and executes the loop body
+     * as long as the condition evaluates to true. The tokens for the condition
+     * and body are separated and interpreted individually to allow dynamic execution.
+     *
+     * - The condition tokens are evaluated on each iteration.
+     * - The body tokens are executed if the condition evaluates to true.
+     * - The loop terminates when the condition evaluates to false.
+     *
+     * Proper stack behavior and token organization are assumed during execution.
+     * The method ensures that unmatched or missing END tokens result in a runtime
+     * error. Stack underflow during condition evaluation also leads to runtime
+     * exceptions.
+     *
+     * @throws std::runtime_error If the END token is missing from the WHILE-DO block.
+     * @throws std::runtime_error If the stack underflow's during condition evaluation.
+     */
     void executeWhile();
 
     /**
@@ -200,6 +221,22 @@ private:
      * @param value A const reference to the std::variant whose value is to be printed.
      */
     static void printVariant(const std::variant<int, std::string>& value);
+
+    /**
+     * Defines a new variable with an initial value in the interpreter.
+     *
+     * This method creates a new variable by associating it with a unique memory
+     * address. The variable's initial value is taken from the top of the stack.
+     * If the variable already exists, an exception is thrown. The new variable's
+     * name is obtained from the token stream, and the interpreter ensures the
+     * token sequence is valid for a variable definition.
+     *
+     * @throws std::runtime_error If a variable with the same name is already
+     * defined, or if the token sequence is invalid for defining a variable.
+     */
+    void defineVariable();
+
+    void loadVariable();
 
     /**
      * Checks if the given StackValue is of a specific type.
@@ -238,6 +275,16 @@ private:
 
 private:
     /**
+     * A mapping of variable names to their corresponding integer values.
+     *
+     * This member variable stores the runtime state of variables used during
+     * interpretation. Each entry in the map associates a variable name (as a string)
+     * with its current value (as an unsigned 32-bit integer). The map is used
+     * for variable lookups, assignments, and related operations during program execution.
+     */
+    std::map<std::string, uint32_t> m_variables;
+
+    /**
      * A shared pointer to the internal execution stack of the interpreter.
      *
      * This stack is used to manage the state during the interpretation process,
@@ -258,6 +305,26 @@ private:
      */
     std::vector<Token> m_tokens;
 
+
+    /**
+     * A shared pointer to a Memory object used for managing and accessing
+     * the memory operations within the Interpreter.
+     *
+     * This member variable provides shared ownership of the Memory instance,
+     * ensuring that it remains accessible and valid for the lifespan of any
+     * component that references it. The Memory object handles storage and
+     * retrieval of data required for the execution process.
+     */
+    std::shared_ptr<Memory> m_memory;
+
+    /**
+     * Tracks the next available memory address for allocation.
+     *
+     * This member variable stores the address to allocate the next block of memory.
+     * It is used to ensure that each allocation operation results in a unique and
+     * sequential memory address.
+     */
+    uint32_t m_nextAvailableMemoryAddress = 0;
 
     /**
      * Represents the current position or index within a sequence of elements.

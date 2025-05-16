@@ -8,11 +8,13 @@
 #include <variant>
 
 Interpreter::Interpreter(std::vector<Token> tokens, std::shared_ptr<Stack> stack)
-    : m_stack(std::move(stack)), m_tokens(std::move(tokens)), m_pos(0) {
+    : m_stack(std::move(stack)), m_tokens(std::move(tokens)) {
 
-    if (!m_stack) {
-        m_stack = std::make_shared<Stack>();
-    }
+    // Initialize Stack
+    if (!m_stack) { m_stack = std::make_shared<Stack>(); }
+
+    // Initialize memory
+    if (!m_memory) { m_memory = std::make_shared<Memory>(1024); }
 
     executionMap = {
         // Stack operations
@@ -29,6 +31,10 @@ Interpreter::Interpreter(std::vector<Token> tokens, std::shared_ptr<Stack> stack
         {TokenType::MUL, [this]() { executeBinary(TokenType::MUL); }},
         {TokenType::DIV, [this]() { executeBinary(TokenType::DIV); }},
         {TokenType::MOD, [this]() { executeBinary(TokenType::MOD); }},
+
+        // Variables
+        {TokenType::CONST, [this]() { defineVariable(); }},
+        {TokenType::LOAD_VARIABLE, [this]() { loadVariable(); }},
 
         // Logical Operators
         {TokenType::EQUALS, [this]() { executeLogical(TokenType::EQUALS); }},
@@ -609,6 +615,71 @@ void Interpreter::executeWhile() {
     }
 }
 
+/**
+ * Defines a new variable in the interpreter's symbol table.
+ *
+ * This method processes the token at the current position to define a variable
+ * name and assigns it a new memory address within the interpreter's memory model.
+ * It validates that the variable has not been previously defined and associates
+ * the value at the top of the stack with the allocated memory address. The stack
+ * value is then written to memory.
+ *
+ * The process includes:
+ * - Consuming the token stream to process the variable definition.
+ * - Validating the presence of an identifier token.
+ * - Checking for name collisions with previously defined variables.
+ * - Incrementing the internal memory address counter for the next variable.
+ * - Popping the stack to retrieve the value and storing it in memory.
+ *
+ * @throws std::runtime_error If the next token is not an identifier, or if the variable
+ * name has already been defined.
+ */
+void Interpreter::defineVariable() {
+    consume();
+
+    if (m_pos >= m_tokens.size() || m_tokens[m_pos].type != TokenType::IDENTIFIER) {
+        throw std::runtime_error("Expected identifier after CONST");
+    }
+
+    const auto variableName = std::get<std::string>(m_tokens[m_pos].value);
+
+    // Check if a variable has already been defined
+    if (m_variables.contains(variableName)) {
+        throw std::runtime_error("Variable already defined");
+    }
+
+    // Assign a memory address to the variable
+    const uint32_t address = m_nextAvailableMemoryAddress;
+    m_variables[variableName] = address;
+    m_nextAvailableMemoryAddress += sizeof(StackValue);
+
+    // POP value from the stack
+    const auto value = m_stack->pop();
+    m_memory->write(address, value);
+}
+
+/**
+ * Loads a variable value into the stack from memory using its name.
+ *
+ * This function retrieves a variable by its name from a token. If the variable
+ * exists in the variable registry, its memory address is obtained, and its
+ * value is read from memory. The value is then pushed onto the stack for further
+ * use in the interpreter. If the variable does not exist, an exception is thrown.
+ *
+ * @throw std::runtime_error If the variable is not defined.
+ */
+void Interpreter::loadVariable() {
+    consume();
+
+    if (const auto variableName = std::get<std::string>(m_tokens[m_pos].value); m_variables.contains(variableName)) {
+        const uint32_t address = m_variables[std::get<std::string>(m_tokens[m_pos].value)];
+        const auto value = m_memory->read(address);
+        m_stack->push(value);
+    }
+    else {
+        throw std::runtime_error("Variable not defined");
+    }
+}
 
 /**
  * Executes the ZERO_CHECK operation.
@@ -627,7 +698,6 @@ void Interpreter::executeZeroCheck() const {
     const int int_a = GetIntOrThrow(value);
     m_stack->push(int_a == 0);
 }
-
 
 /**
  * Executes the sequence of tokens provided to the Interpreter.
@@ -653,6 +723,9 @@ void Interpreter::execute() {
             if (type == TokenType::INT_LITERAL || type == TokenType::STR_LITERAL) {
                 executePush(value);
                 consume(); // Consume the literal
+            }
+            else if (type == TokenType::IDENTIFIER) {
+
             }
             else {
                 // Use the map to call the appropriate function.

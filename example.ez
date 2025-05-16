@@ -1,3 +1,8 @@
 ; <condition> while do <expression_body> end
 
-5 dup 2 > while do print 1 - dup end
+; 5 dup 2 > while do print 1 - dup end
+
+5 const name
+
+@ name
+print

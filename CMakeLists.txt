@@ -9,4 +9,6 @@ add_executable(ezlang main.cpp
         Interpreter.cpp
         Interpreter.h
         Stack.cpp
-        Stack.h)
+        Stack.h
+        Memory.cpp
+        Memory.h)
