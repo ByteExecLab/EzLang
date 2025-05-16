@@ -188,6 +188,8 @@ private:
      */
     void executeIf();
 
+    void executeWhile();
+
     /**
      * Prints the value held by a std::variant to the standard output stream (std::cout).
      *

@@ -41,6 +41,7 @@ Interpreter::Interpreter(std::vector<Token> tokens, std::shared_ptr<Stack> stack
 
         // Control flow
         {TokenType::IF, [this]() { executeIf(); }},
+        {TokenType::WHILE, [this] { executeWhile(); }},
 
             // Utils
         {TokenType::PRINT, [this]() { executePrint(); }},
@@ -324,7 +325,7 @@ void Interpreter::executeBinary(const TokenType tokenType) const {
             if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
                 const int int_a = GetIntOrThrow(l_value);
                 const int int_b = GetIntOrThrow(r_value);
-                result = int_a - int_b;
+                result = int_b - int_a;
             } break;
         }
         case TokenType::MUL: {
@@ -400,68 +401,68 @@ void Interpreter::executeLogical(const TokenType tokenType) const {
     switch (tokenType) {
         case TokenType::EQUALS: {
             if (isOfType<std::string>(l_value) && isOfType<std::string>(r_value)) {
-                result = GetStringOrThrow(l_value) == GetStringOrThrow(r_value);
+                result = GetStringOrThrow(r_value) == GetStringOrThrow(l_value);
             }
             else if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
                 const int int_a = GetIntOrThrow(l_value);
                 const int int_b = GetIntOrThrow(r_value);
 
-                result = int_a == int_b;
+                result = int_b == int_a;
             }
             else {
                 throw std::runtime_error("[ERROR]: Mismatched types for = operation");
             } break;
         }
         case TokenType::LESS_THAN: {
-            if (isOfType<std::string>(l_value) && isOfType<std::string>(r_value)) {
+            if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
                 const int int_a = GetIntOrThrow(l_value);
                 const int int_b = GetIntOrThrow(r_value);
 
-                result = int_a < int_b;
+                result = int_b < int_a;
             }
             else {
                 throw std::runtime_error("[ERROR]: Mismatched types for < operation");
             } break;
         };
         case TokenType::GREATER_THAN: {
-            if (isOfType<std::string>(l_value) && isOfType<std::string>(r_value)) {
+            if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
                 const int int_a = GetIntOrThrow(l_value);
                 const int int_b = GetIntOrThrow(r_value);
 
-                result = int_a > int_b;
+                result = int_b > int_a;
             }
             else {
                 throw std::runtime_error("[ERROR]: Mismatched types for > operation");
             } break;
         }
         case TokenType::LESS_THAN_EQUALS: {
-            if (isOfType<std::string>(l_value) && isOfType<std::string>(r_value)) {
+            if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
                 const int int_a = GetIntOrThrow(l_value);
                 const int int_b = GetIntOrThrow(r_value);
 
-                result = int_a <= int_b;
+                result = int_b <= int_a;
             }
             else {
                 throw std::runtime_error("[ERROR]: Mismatched types for <= operation");
             } break;
         }
         case TokenType::GREATER_THAN_EQUALS: {
-            if (isOfType<std::string>(l_value) && isOfType<std::string>(r_value)) {
+            if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
                 const int int_a = GetIntOrThrow(l_value);
                 const int int_b = GetIntOrThrow(r_value);
 
-                result = int_a >= int_b;
+                result = int_b >= int_a;
             }
             else {
                 throw std::runtime_error("[ERROR]: Mismatched types for >= operation");
             } break;
         }
         case TokenType::NOT_EQUALS: {
-            if (isOfType<std::string>(l_value) && isOfType<std::string>(r_value)) {
+            if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
                 const int int_a = GetIntOrThrow(l_value);
                 const int int_b = GetIntOrThrow(r_value);
 
-                result = int_a != int_b;
+                result = int_b != int_a;
             }
             else {
                 throw std::runtime_error("[ERROR]: Mismatched types for != operation");
@@ -531,6 +532,80 @@ void Interpreter::executeIf() {
         Interpreter elseInterpreter(elseBranch, m_stack); // Create a new interpreter for the else branch
         elseInterpreter.executionMap = executionMap;
         elseInterpreter.execute();
+    }
+}
+
+/**
+ * Executes a WHILE-DO loop based on a tokenized input sequence.
+ *
+ * This method processes a WHILE-DO block by parsing the condition and body tokens from the input sequence,
+ * evaluating the condition, and executing the body repeatedly as long as the condition evaluates to true.
+ * It handles the separation of tokens into condition and body blocks and ensures the correct flow of execution.
+ *
+ * - A WHILE-DO block begins with a WHILE token, followed by a condition block, a DO token, a body block,
+ *   and ends with an END token.
+ * - The condition is evaluated by creating a temporary Interpreter instance to process the condition tokens.
+ *   The result of the condition evaluation is retrieved from the stack and checked.
+ * - If the condition evaluates to true, another temporary Interpreter instance is used to process the body tokens.
+ * - This continues in a loop until the condition evaluates to false.
+ *
+ * Exceptions:
+ * - Throws std::runtime_error if the END token is missing after the WHILE-DO block.
+ * - Throws std::runtime_error if a stack underflow occurs when attempting to retrieve the condition result.
+ *
+ * Preconditions:
+ * - The token sequence provided to the Interpreter must contain a valid WHILE-DO block structure.
+ * - The execution stack (m_stack) must be initialized and available for performing operations.
+ */
+void Interpreter::executeWhile() {
+    consume(); // consume WHILE
+
+    // Parse and store the condition and body tokens.
+    std::vector<Token> conditionTokens;
+    std::vector<Token> bodyTokens;
+
+    bool isInBodyBlock = false;
+    while (m_pos < m_tokens.size() && m_tokens[m_pos].type != TokenType::END) {
+        if (m_tokens[m_pos].type == TokenType::DO) {
+            isInBodyBlock = true;
+            consume(); // Consume DO
+            continue;
+        }
+
+        if (!isInBodyBlock) {
+            conditionTokens.push_back(consume());
+        }
+        else {
+            bodyTokens.push_back(consume());
+        }
+    }
+
+    // Check END
+    if (m_pos >= m_tokens.size()) {
+        throw std::runtime_error("Expected END after WHILE-DO block");
+    }
+
+    while (true) {
+        // execute condition
+        Interpreter conditionInterpreter(conditionTokens, m_stack);
+        conditionInterpreter.executionMap = executionMap;
+        conditionInterpreter.execute();
+
+        if (m_stack->empty()) {
+            throw std::runtime_error("Stack underflow: WHILE condition result");
+        }
+
+        StackValue conditionResult = m_stack->pop();
+
+        // Exit loop if the condition is false
+        if (const bool conditionIsTrue = std::holds_alternative<int>(conditionResult) && (std::get<int>(conditionResult) != 0); !conditionIsTrue) {
+            break;
+        }
+
+        // Execute body
+        Interpreter bodyInterpreter(bodyTokens, m_stack);
+        bodyInterpreter.executionMap = executionMap;
+        bodyInterpreter.execute();
     }
 }
 

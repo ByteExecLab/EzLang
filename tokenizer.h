@@ -10,16 +10,17 @@
 enum class TokenType {
     DUP, DROP, SWAP, OVER, NIP, TUCK,
 
+    // System
     PRINT, INT_LITERAL, STR_LITERAL,
 
     // Control
-    IF, ELSE, WHILE, FOR, END,
+    IF, ELSE, WHILE, DO, FOR, END,
 
     // Maths
     ADD, SUB, MUL, DIV, MOD,
 
     // Logical
-    EQUALS, NOT_EQUALS, LESS_THAN, LESS_THAN_EQUALS, GREATER_THAN, GREATER_THAN_EQUALS, ZERO_CHECK
+    EQUALS,NOT_EQUALS, LESS_THAN, LESS_THAN_EQUALS, GREATER_THAN, GREATER_THAN_EQUALS, ZERO_CHECK
 };
 
 struct Token {
@@ -59,6 +60,7 @@ inline std::string tokenTypeToString(const TokenType type) {
         {TokenType::IF, "IF"},
         {TokenType::ELSE, "ELSE"},
         {TokenType::WHILE, "WHILE"},
+        {TokenType::DO, "DO"},
         {TokenType::FOR, "FOR"},
         {TokenType::END, "END"},
         {TokenType::ADD, "ADD"},

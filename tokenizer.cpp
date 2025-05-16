@@ -90,6 +90,7 @@ std::vector<Token> tokenizer::tokenize() {
                     else if (buf == "if")   tokens.push_back({TokenType::IF});
                     else if (buf == "else") tokens.push_back({TokenType::ELSE});
                     else if (buf == "while")tokens.push_back({TokenType::WHILE});
+                    else if (buf == "do")   tokens.push_back({TokenType::DO});
                     else if (buf == "end")  tokens.push_back({TokenType::END});
                     buf.clear();
                 } else if (std::isdigit(c)) {
