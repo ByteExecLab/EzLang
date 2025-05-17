@@ -1,5 +1,5 @@
 ; Fill stack
-5 5
+5 10
 
 ; + print
 ; - print
@@ -17,9 +17,9 @@
 ; over print
 ; dup print
 
-5 dup 2 > while do print 1 - dup end
+; 5 dup 2 > while do print 1 - dup end
 
-; = if "equal" print else "not equal" print end
+= if "equal" print else "not equal" print end
 
 ; Define a variable
 ; POPs the value from the stack and stores it in a variable

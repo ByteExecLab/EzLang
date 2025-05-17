@@ -619,22 +619,19 @@ void Interpreter::executeLogical(const TokenType tokenType) {
 void Interpreter::executeIf() {
     consume(TokenType::IF, "[ERROR]: Expected IF operation");
 
-    // Checking if the stack is not empty
     if (m_stack->empty()) {
         throw std::runtime_error("Stack underflow: IF condition");
     }
 
     // POP condition from the stacks
-    const auto condition = m_stack->pop();
-    bool conditionIsTrue = false;
-    if (std::holds_alternative<int>(condition)) {
-        conditionIsTrue = (std::get<int>(condition) != 0);
-    }
+    const StackValue conditionResult = m_stack->pop();
+    bool conditionIsTrue = std::holds_alternative<int>(conditionResult) && (std::get<int>(conditionResult) != 0);
 
     // Collect tokens
     std::vector<Token> ifBranch;
     std::vector<Token> elseBranch;
     bool inElseBlock = false;
+    size_t ifEndPos = 0;
 
     //read all the tokens inside the if and else branches
     while (m_pos < m_tokens.size() && (m_tokens[m_pos].type != TokenType::END)) {
@@ -654,17 +651,22 @@ void Interpreter::executeIf() {
     }
 
     consume(TokenType::END, "[ERROR]: Expected END for IF"); // Consume ENDIF
+    ifEndPos = m_pos;
+    const std::vector<Token> afterIfTokens = m_tokens;
 
     if (conditionIsTrue) {
-        // Execute the 'if' branch
-        Interpreter ifInterpreter(ifBranch, m_stack); // Create a new interpreter for the if branch
-        ifInterpreter.executionMap = executionMap;
-        ifInterpreter.execute();
+       m_tokens = ifBranch;
+       m_pos = 0;
+       execute();
     } else if (inElseBlock) {
-        Interpreter elseInterpreter(elseBranch, m_stack); // Create a new interpreter for the else branch
-        elseInterpreter.executionMap = executionMap;
-        elseInterpreter.execute();
+        m_tokens = elseBranch;
+        m_pos = 0;
+        execute();
     }
+
+    m_pos = ifEndPos;
+    m_tokens = afterIfTokens;
+    execute();
 }
 
 /**
@@ -694,7 +696,6 @@ void Interpreter::executeWhile() {
 
     std::vector<Token> conditionTokens;
     std::vector<Token> bodyTokens;
-    // To store tokens after the WHILE loop
 
     size_t whileEndPos = 0;
     bool isInBodyBlock = false;
