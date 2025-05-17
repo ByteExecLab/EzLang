@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <map>
 #include <memory>
 #include <utility>
@@ -19,8 +20,6 @@ Interpreter::Interpreter(std::vector<Token> tokens, std::shared_ptr<Stack> stack
     executionMap = {
         // Stack operations
         // TODO: Move below operations to stack class?
-        {TokenType::INT_LITERAL, [this]() { executeIntLiteral(); }},
-        {TokenType::STR_LITERAL, [this]() { executeStrLiteral(); }},
         {TokenType::DUP, [this]() {
             consume(TokenType::DUP, "[ERROR]: Expected DUP operation");
             m_stack->dup();
@@ -619,54 +618,50 @@ void Interpreter::executeLogical(const TokenType tokenType) {
 void Interpreter::executeIf() {
     consume(TokenType::IF, "[ERROR]: Expected IF operation");
 
-    if (m_stack->empty()) {
-        throw std::runtime_error("Stack underflow: IF condition");
-    }
+    std::vector<Token> ifBody;
+    std::vector<Token> elseBody;
+    bool isInElseBlock = false;
 
-    // POP condition from the stacks
-    const StackValue conditionResult = m_stack->pop();
-    bool conditionIsTrue = std::holds_alternative<int>(conditionResult) && (std::get<int>(conditionResult) != 0);
-
-    // Collect tokens
-    std::vector<Token> ifBranch;
-    std::vector<Token> elseBranch;
-    bool inElseBlock = false;
     size_t ifEndPos = 0;
+    std::vector<Token> originalTokens = m_tokens;
 
-    //read all the tokens inside the if and else branches
+    const StackValue conditionResult = m_stack->pop();
+    const bool conditionIsTrue = std::holds_alternative<int>(conditionResult) && (std::get<int>(conditionResult) != 0);
+
     while (m_pos < m_tokens.size() && (m_tokens[m_pos].type != TokenType::END)) {
         if (m_tokens[m_pos].type == TokenType::ELSE) {
-            inElseBlock = true;
+            isInElseBlock = true;
             consume(TokenType::ELSE, "[ERROR]: Expected ELSE operation");
         }
-        else if (inElseBlock) {
-            elseBranch.push_back(consume());
+        else if (isInElseBlock) {
+            elseBody.push_back(consume());
         }
         else {
-            ifBranch.push_back(consume());
+            ifBody.push_back(consume());
         }
     }
+
     if (m_pos >= m_tokens.size() || m_tokens[m_pos].type != TokenType::END) {
-        throw std::runtime_error("Expected ENDIF after IF-ELSE block");
+        throw std::runtime_error("[ERROR]: Expected END after IF block");
     }
 
-    consume(TokenType::END, "[ERROR]: Expected END for IF"); // Consume ENDIF
+    consume(TokenType::END, "[ERROR]: Expected END for IF"); // Consume END
     ifEndPos = m_pos;
-    const std::vector<Token> afterIfTokens = m_tokens;
+    originalTokens = m_tokens;
 
     if (conditionIsTrue) {
-       m_tokens = ifBranch;
-       m_pos = 0;
-       execute();
-    } else if (inElseBlock) {
-        m_tokens = elseBranch;
+        m_tokens = ifBody;
+        m_pos = 0;
+        execute();
+    }
+    else {
+        m_tokens = elseBody;
         m_pos = 0;
         execute();
     }
 
     m_pos = ifEndPos;
-    m_tokens = afterIfTokens;
-    execute();
+    m_tokens = originalTokens;
 }
 
 /**
@@ -906,11 +901,14 @@ void Interpreter::executeZeroCheck() const {
  */
 void Interpreter::execute() {
     while (m_pos < m_tokens.size()) {
-        // std::cout << "Executing token #" << m_pos << ": "
-        //   << tokenTypeToString(m_tokens[m_pos].type) << std::endl;
         const auto&[type, value] = m_tokens[m_pos];
+        // std::cout << tokenTypeToString(type) << std::endl;
         try {
-            if (auto it = executionMap.find(type); it != executionMap.end()) {
+            if (type == TokenType::INT_LITERAL || type == TokenType::STR_LITERAL) {
+                executePush(value);
+                consume();
+            }
+            else if (auto it = executionMap.find(type); it != executionMap.end()) {
                 it->second(); // Call the function
             }
             else {

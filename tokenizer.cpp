@@ -92,6 +92,7 @@ std::vector<Token> tokenizer::tokenize() {
                     else if (buf == "over") tokens.push_back({TokenType::OVER});
                     else if (buf == "nip") tokens.push_back({TokenType::NIP});
                     else if (buf == "tuck") tokens.push_back({TokenType::TUCK});
+                    else if (buf == "drop") tokens.push_back({TokenType::DROP});
 
                     // Variables
                     else if (buf == "const") tokens.push_back({TokenType::CONST});
