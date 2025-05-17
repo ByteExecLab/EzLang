@@ -38,6 +38,10 @@ std::vector<Token> tokenizer::tokenize() {
                     consume();
                     tokens.push_back({TokenType::NOT_EQUALS});
                 }
+                else {
+                    consume();
+                    tokens.push_back({TokenType::STORE_VARIABLE});
+                }
                 break;
             case '<':
                 consume();

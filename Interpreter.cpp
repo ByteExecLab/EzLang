@@ -19,9 +19,20 @@ Interpreter::Interpreter(std::vector<Token> tokens, std::shared_ptr<Stack> stack
     executionMap = {
         // Stack operations
         // TODO: Move below operations to stack class?
-        {TokenType::DUP, [this]() { m_stack->dup(); }},
-        {TokenType::SWAP, [this]() { m_stack->swap(); }},
-        {TokenType::DROP, [this]() { m_stack->drop(); }},
+        {TokenType::INT_LITERAL, [this]() { executeIntLiteral(); }},
+        {TokenType::STR_LITERAL, [this]() { executeStrLiteral(); }},
+        {TokenType::DUP, [this]() {
+            consume(TokenType::DUP, "[ERROR]: Expected DUP operation");
+            m_stack->dup();
+        }},
+        {TokenType::SWAP, [this]() {
+            consume(TokenType::SWAP, "[ERROR]: Expected SWAP operation");
+            m_stack->swap();
+        }},
+        {TokenType::DROP, [this]() {
+            consume(TokenType::DROP, "[ERROR]: Expected DROP operation");
+            m_stack->drop();
+        }},
         {TokenType::OVER, [this]() { executeOver(); }},
         {TokenType::NIP, [this] { executeNip(); }},
 
@@ -33,8 +44,15 @@ Interpreter::Interpreter(std::vector<Token> tokens, std::shared_ptr<Stack> stack
         {TokenType::MOD, [this]() { executeBinary(TokenType::MOD); }},
 
         // Variables
-        {TokenType::CONST, [this]() { defineVariable(); }},
-        {TokenType::LOAD_VARIABLE, [this]() { loadVariable(); }},
+        {TokenType::CONST, [this]() { executeDefineVariable(); }},
+        { TokenType::IDENTIFIER, [this] {
+           if (peek(1)->type == TokenType::LOAD_VARIABLE) {
+               executeLoadVariable();
+           }
+            else if (peek(1)->type == TokenType::STORE_VARIABLE) {
+               executeStoreVariable();
+            }
+        }},
 
         // Logical Operators
         {TokenType::EQUALS, [this]() { executeLogical(TokenType::EQUALS); }},
@@ -49,7 +67,7 @@ Interpreter::Interpreter(std::vector<Token> tokens, std::shared_ptr<Stack> stack
         {TokenType::IF, [this]() { executeIf(); }},
         {TokenType::WHILE, [this] { executeWhile(); }},
 
-            // Utils
+        // Utils
         {TokenType::PRINT, [this]() { executePrint(); }},
     };
 }
@@ -71,6 +89,21 @@ void Interpreter::printVariant(const std::variant<int, std::string>& value) {
     std::visit([](auto&& arg) { std::cout << arg << std::endl; }, value);
 }
 
+/**
+ * Retrieves the current token being processed in the token sequence.
+ *
+ * This function accesses a specific token from the stored sequence
+ * of tokens based on the current position index. It ensures the return
+ * of the token at the index specified by the internal position tracker.
+ * The function does not modify the state of the object and guarantees
+ * a valid token is returned as it uses bounds-checked access.
+ *
+ * @return The current token from the sequence, accessed at the position
+ * determined by the internal index tracker.
+ */
+Token Interpreter::getCurrentToken() const {
+    return m_tokens.at(m_pos);
+}
 
 /**
  * Checks whether a std::variant holds a value of a specific type.
@@ -81,7 +114,7 @@ void Interpreter::printVariant(const std::variant<int, std::string>& value) {
  *
  * @tparam T The type to check for within the variant.  This is a template
  * parameter, so the caller specifies the type they are interested in.
- * the std::variant can potentially hold.  This is deduced from the
+ * The std::variant can potentially hold.  This is deduced from the
  * variant itself.
  * @param value A const reference to the std::variant to check.  Passing by
  * const reference avoids unnecessary copying and prevents
@@ -123,7 +156,7 @@ int Interpreter::GetIntOrThrow(const StackValue &value) {
  *
  * This function attempts to extract the string value from the provided variant.
  * If the variant holds a string, that string is returned. If the variant
- * holds a different type (e.g., an integer), a std::runtime_error exception is
+ * holds a different type (e.g., an integer), an std::runtime_error exception is
  * thrown with a specific error message. This ensures that the program handles
  * unexpected types gracefully.
  *
@@ -160,6 +193,21 @@ Token Interpreter::consume() {
     return m_tokens.at(m_pos++);
 }
 
+Token Interpreter::consume(const TokenType tokenType, const std::string &errorMessage) {
+    if (m_pos >= m_tokens.size()) {
+        throw std::runtime_error("Unexpected end of tokens");
+    }
+
+    const Token &token = m_tokens.at(m_pos);
+    if (token.type != tokenType) {
+        throw std::runtime_error(errorMessage);
+    }
+
+    m_pos++;
+    return token;
+}
+
+
 /**
  * Peeks at a token ahead of the current position without consuming it.
  *
@@ -195,9 +243,13 @@ std::optional<Token> Interpreter::peek(size_t offset) {
  * instruction.  It then consumes the 'print' token.
  *
  */
-void Interpreter::executePrint() const {
-    const auto print_value = m_stack->peek();
-    printVariant(print_value);
+void Interpreter::executePrint() {
+    consume(TokenType::PRINT, "[ERROR]: Expected PRINT");
+    if (m_stack->empty()) {
+        throw std::runtime_error("[ERROR]: Stack underflow for print operation");
+    }
+
+    printVariant(m_stack->peek());
 }
 
 /**
@@ -215,6 +267,41 @@ void Interpreter::executePush(const StackValue &value) const {
 }
 
 /**
+ * Executes a string literal operation in the interpreter.
+ *
+ * This function processes a token of type `TokenType::STR_LITERAL`, ensuring
+ * its presence in the input stream. Upon successful consumption, the function
+ * extracts the literal value and pushes it onto the interpreter's stack
+ * for further execution or evaluation.
+ *
+ * Any absence of a string literal token in the expected position triggers
+ * an error with the provided message, halting execution.
+ */
+void Interpreter::executeStrLiteral() {
+    const auto [type, value] =
+        consume(TokenType::STR_LITERAL, "[ERROR]: Expected string literal");
+    m_stack->push(value);
+}
+
+/**
+ * Executes the processing of an integer literal in the interpreter.
+ *
+ * This function consumes a token of type TokenType::INT_LITERAL, ensuring that it matches
+ * the expected type. If the token does not match, an error message is provided. The value
+ * of the integer literal is then pushed onto the interpreter's stack for further processing.
+ *
+ * This operation is critical for handling integer literals during interpretation of code,
+ * enabling later operations to access or manipulate the stored value.
+ *
+ * The function interacts closely with the token stream by consuming the token and also
+ * the stack where the value is stored after processing.
+ */
+void Interpreter::executeIntLiteral() {
+    const auto [type, value] = consume(TokenType::INT_LITERAL, "[ERROR]: Expected integer literal");
+    m_stack->push(value);
+}
+
+/**
  * Executes the "over" operation on the stack managed by the interpreter.
  *
  * The "over" operation duplicates the second-to-top value on the stack,
@@ -225,10 +312,12 @@ void Interpreter::executePush(const StackValue &value) const {
  * @throws std::runtime_error If the stack contains fewer than two elements,
  * indicating a stack underflow condition.
  */
-void Interpreter::executeOver() const {
+void Interpreter::executeOver() {
     if (m_stack->size() < 2) {
         throw std::runtime_error("[ERROR]: Stack underflow for over operation");
     }
+
+    consume(TokenType::OVER, "[ERROR]: Expected over operation");
 
     const StackValue top_value = m_stack->pop();
     const StackValue second_value = m_stack->peek();
@@ -248,10 +337,12 @@ void Interpreter::executeOver() const {
  *
  * @throws std::runtime_error Thrown if the stack contains fewer than two elements.
  */
-void Interpreter::executeNip() const {
+void Interpreter::executeNip() {
     if (m_stack->size() < 2) {
         throw std::runtime_error("[ERROR]: Stack underflow for nip operation");
     }
+
+    consume(TokenType::NIP, "Expected NIP operation");
 
     // Get first value
     const StackValue top_value = m_stack->pop();
@@ -275,10 +366,12 @@ void Interpreter::executeNip() const {
  *
  * @throws std::runtime_error If the stack contains fewer than two elements.
  */
-void Interpreter::executeTuck() const {
+void Interpreter::executeTuck() {
     if (m_stack->size() < 2) {
         throw std::runtime_error("Not enough operands for TUCK");
     }
+
+    consume(TokenType::TUCK, "[ERROR]: Expected TUCK operation");
 
     const StackValue topValue = m_stack->pop();
     const StackValue secondValue = m_stack->pop();
@@ -304,7 +397,7 @@ void Interpreter::executeTuck() const {
  * TokenType::DIV, or TokenType::MOD.
  *
  */
-void Interpreter::executeBinary(const TokenType tokenType) const {
+void Interpreter::executeBinary(const TokenType tokenType) {
     if (m_stack->size() < 2) {
         throw std::runtime_error("[ERROR]: Stack underflow for binary operation");
     }
@@ -315,6 +408,9 @@ void Interpreter::executeBinary(const TokenType tokenType) const {
 
     switch (tokenType) {
         case TokenType::ADD: {
+            // Consume ADD token
+            consume(TokenType::ADD, "[ERROR]: Expected ADD operation");
+
             if (isOfType<std::string>(l_value) && isOfType<std::string>(r_value)) {
                 result = GetStringOrThrow(l_value) + GetStringOrThrow(r_value);
             }
@@ -328,6 +424,9 @@ void Interpreter::executeBinary(const TokenType tokenType) const {
             } break;
         };
         case TokenType::SUB: {
+            // Consume SUB token
+            consume(TokenType::SUB, "[ERROR]: Expected SUB operation");
+
             if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
                 const int int_a = GetIntOrThrow(l_value);
                 const int int_b = GetIntOrThrow(r_value);
@@ -335,6 +434,9 @@ void Interpreter::executeBinary(const TokenType tokenType) const {
             } break;
         }
         case TokenType::MUL: {
+            // Consume MUL token
+            consume(TokenType::MUL, "[ERROR]: Expected MUL operation");
+
             if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
                 const int int_a = GetIntOrThrow(l_value);
                 const int int_b = GetIntOrThrow(r_value);
@@ -345,6 +447,9 @@ void Interpreter::executeBinary(const TokenType tokenType) const {
             } break;
         }
         case TokenType::DIV: {
+            // Consume DIV token
+            consume(TokenType::DIV, "[ERROR]: Expected DIV operation");
+
             if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
                 const int int_a = GetIntOrThrow(l_value);
                 const int int_b = GetIntOrThrow(r_value);
@@ -359,6 +464,9 @@ void Interpreter::executeBinary(const TokenType tokenType) const {
             } break;
         }
         case TokenType::MOD: {
+            // Consume MOD token
+            consume(TokenType::MOD, "[ERROR]: Expected MOD operation");
+
             if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
                 const int int_a = GetIntOrThrow(l_value);
                 const int int_b = GetIntOrThrow(r_value);
@@ -394,7 +502,7 @@ void Interpreter::executeBinary(const TokenType tokenType) const {
  *
  * @throws std::runtime_error if the stack contains fewer th two elements.
  */
-void Interpreter::executeLogical(const TokenType tokenType) const {
+void Interpreter::executeLogical(const TokenType tokenType) {
     if (m_stack->size() < 2) {
         throw std::runtime_error("[ERROR]: Stack underflow for logical operation");
     }
@@ -406,6 +514,9 @@ void Interpreter::executeLogical(const TokenType tokenType) const {
 
     switch (tokenType) {
         case TokenType::EQUALS: {
+            // Consume EQUALS token
+            consume(TokenType::EQUALS, "[ERROR]: Expected EQUALS operation");
+
             if (isOfType<std::string>(l_value) && isOfType<std::string>(r_value)) {
                 result = GetStringOrThrow(r_value) == GetStringOrThrow(l_value);
             }
@@ -420,6 +531,9 @@ void Interpreter::executeLogical(const TokenType tokenType) const {
             } break;
         }
         case TokenType::LESS_THAN: {
+            // Consume LESS_THAN
+            consume(TokenType::LESS_THAN, "[ERROR]: Expected LESS_THAN operation");
+
             if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
                 const int int_a = GetIntOrThrow(l_value);
                 const int int_b = GetIntOrThrow(r_value);
@@ -431,6 +545,9 @@ void Interpreter::executeLogical(const TokenType tokenType) const {
             } break;
         };
         case TokenType::GREATER_THAN: {
+            // Consume GREATER_THAN
+            consume(TokenType::GREATER_THAN, "[ERROR]: Expected GREATER_THAN operation");
+
             if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
                 const int int_a = GetIntOrThrow(l_value);
                 const int int_b = GetIntOrThrow(r_value);
@@ -442,6 +559,9 @@ void Interpreter::executeLogical(const TokenType tokenType) const {
             } break;
         }
         case TokenType::LESS_THAN_EQUALS: {
+            // Consume LESS_THAN_EQUALS
+            consume(TokenType::LESS_THAN_EQUALS, "[ERROR]: Expected LESS_THAN_EQUALS operation");
+
             if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
                 const int int_a = GetIntOrThrow(l_value);
                 const int int_b = GetIntOrThrow(r_value);
@@ -453,6 +573,9 @@ void Interpreter::executeLogical(const TokenType tokenType) const {
             } break;
         }
         case TokenType::GREATER_THAN_EQUALS: {
+            // Consume GREATER_THAN_EQUALS
+            consume(TokenType::GREATER_THAN_EQUALS, "[ERROR]: Expected GREATER_THAN_EQUALS operation");
+
             if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
                 const int int_a = GetIntOrThrow(l_value);
                 const int int_b = GetIntOrThrow(r_value);
@@ -464,6 +587,9 @@ void Interpreter::executeLogical(const TokenType tokenType) const {
             } break;
         }
         case TokenType::NOT_EQUALS: {
+            // Consume NOT_EQUALS
+            consume(TokenType::NOT_EQUALS, "[ERROR]: Expected NOT_EQUALS operation");
+
             if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
                 const int int_a = GetIntOrThrow(l_value);
                 const int int_b = GetIntOrThrow(r_value);
@@ -491,7 +617,7 @@ void Interpreter::executeLogical(const TokenType tokenType) const {
  * a new Interpreter to execute the appropriate branch.
  */
 void Interpreter::executeIf() {
-    consume(); // consume IF
+    consume(TokenType::IF, "[ERROR]: Expected IF operation");
 
     // Checking if the stack is not empty
     if (m_stack->empty()) {
@@ -514,7 +640,7 @@ void Interpreter::executeIf() {
     while (m_pos < m_tokens.size() && (m_tokens[m_pos].type != TokenType::END)) {
         if (m_tokens[m_pos].type == TokenType::ELSE) {
             inElseBlock = true;
-            consume(); // Consume else
+            consume(TokenType::ELSE, "[ERROR]: Expected ELSE operation");
         }
         else if (inElseBlock) {
             elseBranch.push_back(consume());
@@ -527,7 +653,7 @@ void Interpreter::executeIf() {
         throw std::runtime_error("Expected ENDIF after IF-ELSE block");
     }
 
-    // consume(); // Consume ENDIF
+    consume(TokenType::END, "[ERROR]: Expected END for IF"); // Consume ENDIF
 
     if (conditionIsTrue) {
         // Execute the 'if' branch
@@ -564,38 +690,40 @@ void Interpreter::executeIf() {
  * - The execution stack (m_stack) must be initialized and available for performing operations.
  */
 void Interpreter::executeWhile() {
-    consume(); // consume WHILE
+    consume(TokenType::WHILE, "[ERROR]: Expected WHILE operation");
 
-    // Parse and store the condition and body tokens.
     std::vector<Token> conditionTokens;
     std::vector<Token> bodyTokens;
+    // To store tokens after the WHILE loop
 
+    size_t whileEndPos = 0;
     bool isInBodyBlock = false;
-    while (m_pos < m_tokens.size() && m_tokens[m_pos].type != TokenType::END) {
+    while (m_pos < m_tokens.size() && (m_tokens[m_pos].type != TokenType::END)) {
         if (m_tokens[m_pos].type == TokenType::DO) {
             isInBodyBlock = true;
-            consume(); // Consume DO
-            continue;
+            consume(TokenType::DO, "[ERROR]: Expected DO operation");
         }
-
-        if (!isInBodyBlock) {
-            conditionTokens.push_back(consume());
+        else if (isInBodyBlock) {
+            bodyTokens.push_back(consume());
         }
         else {
-            bodyTokens.push_back(consume());
+            conditionTokens.push_back(consume());
         }
     }
 
-    // Check END
-    if (m_pos >= m_tokens.size()) {
+    if (m_pos >= m_tokens.size() || m_tokens[m_pos].type != TokenType::END) {
         throw std::runtime_error("Expected END after WHILE-DO block");
     }
 
+    consume(TokenType::END, "[ERROR]: Expected END for WHILE-DO"); // Consume END
+    whileEndPos = m_pos;
+    const std::vector<Token> afterWhileTokens = m_tokens;
+
     while (true) {
         // execute condition
-        Interpreter conditionInterpreter(conditionTokens, m_stack);
-        conditionInterpreter.executionMap = executionMap;
-        conditionInterpreter.execute();
+        m_tokens = conditionTokens;
+        m_pos = 0;
+        execute();
 
         if (m_stack->empty()) {
             throw std::runtime_error("Stack underflow: WHILE condition result");
@@ -605,13 +733,16 @@ void Interpreter::executeWhile() {
 
         // Exit loop if the condition is false
         if (const bool conditionIsTrue = std::holds_alternative<int>(conditionResult) && (std::get<int>(conditionResult) != 0); !conditionIsTrue) {
+            m_pos = whileEndPos;
+            m_tokens = afterWhileTokens;
+            execute();
             break;
         }
 
         // Execute body
-        Interpreter bodyInterpreter(bodyTokens, m_stack);
-        bodyInterpreter.executionMap = executionMap;
-        bodyInterpreter.execute();
+        m_tokens = bodyTokens;
+        m_pos = 0;
+        execute();
     }
 }
 
@@ -634,14 +765,14 @@ void Interpreter::executeWhile() {
  * @throws std::runtime_error If the next token is not an identifier, or if the variable
  * name has already been defined.
  */
-void Interpreter::defineVariable() {
-    consume();
+void Interpreter::executeDefineVariable() {
+    consume(TokenType::CONST, "Expected const before IDENTIFIER"); // Consume CONST token
 
-    if (m_pos >= m_tokens.size() || m_tokens[m_pos].type != TokenType::IDENTIFIER) {
-        throw std::runtime_error("Expected identifier after CONST");
+    if (m_tokens[m_pos].type != TokenType::IDENTIFIER) {
+        throw std::runtime_error("Expected IDENTIFIER after CONST");
     }
-
-    const auto variableName = std::get<std::string>(m_tokens[m_pos].value);
+    const auto variableName = GetStringOrThrow(m_tokens[m_pos].value);
+    consume(TokenType::IDENTIFIER, "Expected IDENTIFIER after CONST"); // Consume IDENTIFIER token
 
     // Check if a variable has already been defined
     if (m_variables.contains(variableName)) {
@@ -653,9 +784,19 @@ void Interpreter::defineVariable() {
     m_variables[variableName] = address;
     m_nextAvailableMemoryAddress += sizeof(StackValue);
 
+    if (m_pos >= m_tokens.size() || m_tokens[m_pos].type != TokenType::END) {
+        throw std::runtime_error("Expected END after identifier in CONST definition");
+    }
+
+    if (m_stack->empty()) {
+        throw std::runtime_error("Stack underflow for variable definition");
+    }
+
     // POP value from the stack
-    const auto value = m_stack->pop();
+    const StackValue value = m_stack->pop();
     m_memory->write(address, value);
+
+    consume(TokenType::END, "Expected END after variable declaration"); // Consume END
 }
 
 /**
@@ -668,18 +809,65 @@ void Interpreter::defineVariable() {
  *
  * @throw std::runtime_error If the variable is not defined.
  */
-void Interpreter::loadVariable() {
-    consume();
+void Interpreter::executeLoadVariable() {
+    const auto variableName = std::get<std::string>(m_tokens[m_pos].value);
+    consume(TokenType::IDENTIFIER, "Expected IDENTIFIER before @"); // consume IDENTIFIER
 
-    if (const auto variableName = std::get<std::string>(m_tokens[m_pos].value); m_variables.contains(variableName)) {
-        const uint32_t address = m_variables[std::get<std::string>(m_tokens[m_pos].value)];
-        const auto value = m_memory->read(address);
+    if (m_variables.contains(variableName)) {
+        const uint32_t address = m_variables[variableName];
+        const StackValue value = m_memory->read(address);
         m_stack->push(value);
     }
     else {
         throw std::runtime_error("Variable not defined");
     }
+
+    consume(TokenType::LOAD_VARIABLE, "Expected @ after IDENTIFIER"); // consume END
 }
+/**
+ * Executes the operation to store a variable into memory.
+ *
+ * This function retrieves a variable's identifier from the token stream, verifies
+ * that the variable exists in the current context, and writes a value from the
+ * stack to the memory address associated with the variable. It ensures that the
+ * stack and variable store contain the required elements to correctly perform
+ * the operation. If a variable is undefined or if the stack is empty, an exception
+ * is thrown to indicate the respective error.
+ *
+ * Exception cases:
+ * - Throws std::runtime_error if the stack is empty when attempting to retrieve a value.
+ * - Throws std::runtime_error if the variable is not defined in the current context.
+ *
+ * @throws std::runtime_error If the stack is empty, resulting in a stack underflow,
+ * or if the specified variable is not defined.
+ *
+ * Operation:
+ * - Consumes an IDENTIFIER token from the token stream expected before the store operation.
+ * - Checks the variable name against the variable map to ensure its existence.
+ * - Pops the top value from the stack, then writes the value to the variable's associated memory address.
+ * - Consumes the STORE_VARIABLE token to complete the operation.
+ */
+void Interpreter::executeStoreVariable() {
+    if (m_stack->empty()) {
+        throw std::runtime_error("Stack underflow for variable store");
+    }
+
+    const auto variableName = std::get<std::string>(m_tokens[m_pos].value);
+    consume(TokenType::IDENTIFIER, "Expected IDENTIFIER before !. Got: " + tokenTypeToString(m_tokens[m_pos].type)); // consume IDENTIFIER
+
+    // TODO: Check type before storing
+    if (m_variables.contains(variableName)) {
+        const uint32_t address = m_variables[variableName];
+        const StackValue value = m_stack->pop();
+        m_memory->write(address, value);
+    }
+    else {
+        throw std::runtime_error("Variable not defined");
+    }
+
+    consume(TokenType::STORE_VARIABLE, "Expected ! after IDENTIFIER. Got: " + tokenTypeToString(m_tokens[m_pos].type)); // consume END
+}
+
 
 /**
  * Executes the ZERO_CHECK operation.
@@ -717,25 +905,15 @@ void Interpreter::executeZeroCheck() const {
  */
 void Interpreter::execute() {
     while (m_pos < m_tokens.size()) {
+        // std::cout << "Executing token #" << m_pos << ": "
+        //   << tokenTypeToString(m_tokens[m_pos].type) << std::endl;
         const auto&[type, value] = m_tokens[m_pos];
         try {
-            // Check for literals first
-            if (type == TokenType::INT_LITERAL || type == TokenType::STR_LITERAL) {
-                executePush(value);
-                consume(); // Consume the literal
-            }
-            else if (type == TokenType::IDENTIFIER) {
-
+            if (auto it = executionMap.find(type); it != executionMap.end()) {
+                it->second(); // Call the function
             }
             else {
-                // Use the map to call the appropriate function.
-                if (auto it = executionMap.find(type); it != executionMap.end()) {
-                    it->second(); // Call the function
-                    consume();
-                }
-                else {
-                    throw std::runtime_error("Unknown token type: " + tokenTypeToString(type));
-                }
+                throw std::runtime_error("Unknown token type: " + tokenTypeToString(type));
             }
         }
         catch (const std::runtime_error& e) {

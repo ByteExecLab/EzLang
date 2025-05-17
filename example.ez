@@ -1,8 +1,36 @@
-; <condition> while do <expression_body> end
+; Fill stack
+5 5
 
-; 5 dup 2 > while do print 1 - dup end
+; + print
+; - print
+; / print
+; % print
 
-5 const name
+; = print
+; < print
+; > print
+; <= print
+; >= print
+; != print
 
-@ name
-print
+; nip print
+; over print
+; dup print
+
+5 dup 2 > while do print 1 - dup end
+
+; = if "equal" print else "not equal" print end
+
+; Define a variable
+; POPs the value from the stack and stores it in a variable
+; const variable end
+
+; Load variable
+; Loads the value of the variable and pushes it onto the stack
+; variable @
+
+"yee" print
+
+; Store value into a variable
+; Type sensitive
+; variable !

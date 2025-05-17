@@ -14,7 +14,7 @@ enum class TokenType {
     PRINT, INT_LITERAL, STR_LITERAL, IDENTIFIER,
 
     // Variables
-    CONST, LOAD_VARIABLE,
+    CONST, LOAD_VARIABLE, STORE_VARIABLE,
 
     // Control
     IF, ELSE, WHILE, DO, FOR, END,
@@ -59,6 +59,7 @@ inline std::string tokenTypeToString(const TokenType type) {
         //
         {TokenType::IDENTIFIER, "IDENTIFIER"},
         {TokenType::CONST, "CONST"},
+        {TokenType::LOAD_VARIABLE, "LOAD_VARIABLE"},
         //
         {TokenType::PRINT, "PRINT"},
         {TokenType::INT_LITERAL, "INT_LITERAL"},

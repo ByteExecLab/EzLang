@@ -4,6 +4,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "Memory.h"
@@ -56,6 +57,24 @@ private:
      */
     Token consume();
 
+
+    /**
+     * Consumes the next token of the specified type from the token stream.
+     *
+     * This method checks the current token in the stream to verify it matches
+     * the expected token type. If the token type does not match or if there are
+     * no more tokens to process, an exception is thrown. When the type matches,
+     * the token is consumed, and the internal position is incremented.
+     *
+     * @param tokenType The expected type of the next token in the stream.
+     * @param errorMessage The error message to be included in the exception
+     * when the token type does not match the expected value.
+     * @return The token that was consumed from the stream.
+     * @throws std::runtime_error if the token type does not match the expected
+     * type, or if the stream has no more tokens.
+     */
+    Token consume(TokenType tokenType, const std::string& errorMessage);
+
     /**
      * Peeks at a token ahead of the current position without consuming it.
      *
@@ -74,14 +93,6 @@ private:
     std::optional<Token> peek(size_t offset = 0);
 
     /**
-     * Executes the 'push' operation, pushing a value onto the stack.
-     *
-     * This function retrieves the value associated with the current token
-     * and pushes it onto the stack.
-     */
-    void executePush(const StackValue &value) const;
-
-    /**
      * Executes the "over" operation on the stack.
      *
      * This method duplicates the second-to-top value on the stack and pushes it
@@ -90,7 +101,7 @@ private:
      *
      * @throws std::runtime_error If the stack contains fewer than two elements, a stack underflow error is raised.
      */
-    void executeOver() const;
+    void executeOver();
 
     /**
      * Executes the "nip" operation on the stack.
@@ -102,7 +113,7 @@ private:
      *
      * @throws std::runtime_error If the stack contains fewer than two values.
      */
-    void executeNip() const;
+    void executeNip();
 
     /**
      * Executes the TUCK operation on the stack.
@@ -115,7 +126,7 @@ private:
      * @throws std::runtime_error Thrown if there are fewer than two elements
      * present on the stack when the method is called.
      */
-    void executeTuck() const;
+    void executeTuck();
 
 
     /**
@@ -124,7 +135,43 @@ private:
      * This function retrieves the value from the top of the stack and prints it
      * to the standard output.
      */
-    void executePrint() const;
+    void executePrint();
+
+    /**
+     * Pushes a value onto the stack managed by the Interpreter.
+     *
+     * This method takes a single value and pushes it onto the stack,
+     * ensuring that the stack maintains the sequence of operations
+     * as needed during interpretation.
+     *
+     * @param value The value to be pushed onto the stack. It is provided
+     * as a constant reference to avoid unnecessary copying.
+     */
+    void executePush(const StackValue &value) const;
+
+    /**
+     * Executes a string literal token and pushes its value onto the stack.
+     *
+     * This method processes a string literal token from the token stream,
+     * extracts its value, and places it on the interpreter's stack. If the
+     * expected token is not a string literal, an error is reported.
+     *
+     * @throws std::runtime_error if the token is not of type STR_LITERAL.
+     */
+    void executeStrLiteral();
+
+    /**
+     * Executes an integer literal operation in the interpreter.
+     *
+     * This method processes the next integer literal token from the input sequence and pushes
+     * its value onto the runtime stack. It ensures that the token being consumed matches the
+     * expected type.
+     *
+     * An error message is displayed if the expected token type is not found during the parsing process.
+     *
+     * @throws std::runtime_error If the token type does not match TokenType::INT_LITERAL.
+     */
+    void executeIntLiteral();
 
     /**
      * Executes a binary arithmetic operation.
@@ -134,8 +181,7 @@ private:
      *
      * @param tokenType The type of binary operation to execute (e.g., ADD, SUB, MUL, DIV, MOD).
      */
-    void executeBinary(TokenType tokenType) const;
-
+    void executeBinary(TokenType tokenType);
 
     /**
      * Executes a logical operation based on the provided token type.
@@ -152,7 +198,7 @@ private:
      *                  inequality, less than, greater than, less than or equal to,
      *                  and greater than or equal to.
      */
-    void executeLogical(TokenType tokenType) const;
+    void executeLogical(TokenType tokenType);
 
 
     /**
@@ -168,7 +214,6 @@ private:
      * @throw std::runtime_error If the stack is empty.
      */
     void executeZeroCheck() const;
-
 
     /**
      * Executes an IF-ELSE conditional block in the interpreted code.
@@ -234,9 +279,36 @@ private:
      * @throws std::runtime_error If a variable with the same name is already
      * defined, or if the token sequence is invalid for defining a variable.
      */
-    void defineVariable();
+    void executeDefineVariable();
 
-    void loadVariable();
+    /**
+     * Executes the operation to load a variable from memory onto the stack.
+     *
+     * This method retrieves the value of a named variable from the memory, using
+     * its address, and pushes the value onto the stack for further use. The variable
+     * to be loaded is specified in the current sequence of tokens being processed.
+     * If the variable is not defined, an exception is thrown.
+     *
+     * Proper token consumption is ensured during the execution process, expecting
+     * a valid identifier followed by the load variable operation token.
+     *
+     * @throws std::runtime_error If the specified variable is not defined.
+     */
+    void executeLoadVariable();
+
+    /**
+     * Executes the operation to store a value into a pre-defined variable in memory.
+     *
+     * This method retrieves a variable name from the current token in the token sequence
+     * and verifies its existence in the variable map. The corresponding value from the
+     * stack is stored at the memory address associated with the variable. The stack
+     * must not be empty before execution, and appropriate tokens must follow
+     * the language's expected syntax.
+     *
+     * @throws std::runtime_error If the stack is empty, the variable is not defined,
+     * or the required tokens do not follow the expected sequence.
+     */
+    void executeStoreVariable();
 
     /**
      * Checks if the given StackValue is of a specific type.
@@ -272,6 +344,16 @@ private:
      * @throws std::runtime_error if the variant does not hold a string value.
      */
     static std::string GetStringOrThrow(const std::variant<int, std::string>& value);
+
+    /**
+     * Retrieves the current token being processed by the interpreter.
+     *
+     * This method returns the token at the current position in the sequence of
+     * tokens that the interpreter is processing.
+     *
+     * @return The token at the current position in the token sequence.
+     */
+    Token getCurrentToken() const;
 
 private:
     /**
