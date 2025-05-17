@@ -2,7 +2,6 @@
 
 #include <functional>
 #include <iostream>
-#include <limits>
 #include <map>
 #include <memory>
 #include <utility>
@@ -21,18 +20,25 @@ Interpreter::Interpreter(std::vector<Token> tokens, std::shared_ptr<Stack> stack
         // Stack operations
         // TODO: Move below operations to stack class?
         {TokenType::DUP, [this]() {
-            consume(TokenType::DUP, "[ERROR]: Expected DUP operation");
+            consume(TokenType::DUP, "[Error:dup]: Expected DUP operation");
             m_stack->dup();
         }},
         {TokenType::SWAP, [this]() {
-            consume(TokenType::SWAP, "[ERROR]: Expected SWAP operation");
+            consume(TokenType::SWAP, "[Error:swap]: Expected SWAP operation");
             m_stack->swap();
         }},
         {TokenType::DROP, [this]() {
-            consume(TokenType::DROP, "[ERROR]: Expected DROP operation");
+            consume(TokenType::DROP, "[Error:drop]: Expected DROP operation");
             m_stack->drop();
         }},
-        {TokenType::OVER, [this]() { executeOver(); }},
+        {TokenType::TUCK, [this]() {
+            consume(TokenType::TUCK, "[Error:tuck]: Expected TUCK operation");
+            m_stack->tuck();
+        }},
+        {TokenType::OVER, [this]() {
+            consume(TokenType::OVER, "[Error:over]: Expected OVER operation");
+            m_stack->over();
+        }},
         {TokenType::NIP, [this] { executeNip(); }},
 
         // Binary operations
@@ -84,7 +90,7 @@ Interpreter::Interpreter(std::vector<Token> tokens, std::shared_ptr<Stack> stack
  * The variant is passed by const reference to avoid unnecessary copying
  * and to ensure the function does not modify the original variant.
  */
-void Interpreter::printVariant(const std::variant<int, std::string>& value) {
+void Interpreter::printVariant(const std::variant<int, double, std::string>& value) {
     std::visit([](auto&& arg) { std::cout << arg << std::endl; }, value);
 }
 
@@ -354,33 +360,6 @@ void Interpreter::executeNip() {
 }
 
 /**
- * Executes the TUCK operation on the stack.
- *
- * The TUCK operation takes the top two values from the stack, pushes the value
- * at the top, and then the second value, followed by the original top value
- * once again. This effectively "tucks" the top value below the second value.
- *
- * If there are fewer than two elements on the stack, the function throws a runtime error
- * indicating insufficient operands.
- *
- * @throws std::runtime_error If the stack contains fewer than two elements.
- */
-void Interpreter::executeTuck() {
-    if (m_stack->size() < 2) {
-        throw std::runtime_error("Not enough operands for TUCK");
-    }
-
-    consume(TokenType::TUCK, "[ERROR]: Expected TUCK operation");
-
-    const StackValue topValue = m_stack->pop();
-    const StackValue secondValue = m_stack->pop();
-
-    m_stack->push(topValue);
-    m_stack->push(secondValue);
-    m_stack->push(topValue);
-}
-
-/**
  * Executes a binary arithmetic operation (addition, subtraction, multiplication,
  * division, or modulo) on the top two values on the stack.
  *
@@ -618,50 +597,61 @@ void Interpreter::executeLogical(const TokenType tokenType) {
 void Interpreter::executeIf() {
     consume(TokenType::IF, "[ERROR]: Expected IF operation");
 
-    std::vector<Token> ifBody;
-    std::vector<Token> elseBody;
-    bool isInElseBlock = false;
+    if (m_stack->empty()) {
+        throw std::runtime_error("Stack underflow: IF condition");
+    }
 
-    size_t ifEndPos = 0;
-    std::vector<Token> originalTokens = m_tokens;
-
+    // POP condition from the stack
     const StackValue conditionResult = m_stack->pop();
     const bool conditionIsTrue = std::holds_alternative<int>(conditionResult) && (std::get<int>(conditionResult) != 0);
 
-    while (m_pos < m_tokens.size() && (m_tokens[m_pos].type != TokenType::END)) {
-        if (m_tokens[m_pos].type == TokenType::ELSE) {
-            isInElseBlock = true;
-            consume(TokenType::ELSE, "[ERROR]: Expected ELSE operation");
+    // Collect tokens
+    std::vector<Token> ifBranch;
+    std::vector<Token> elseBranch;
+    bool inElseBlock = false;
+    int ifCount = 1;
+
+    while (m_pos < m_tokens.size() && ifCount > 0) {
+        Token current = m_tokens[m_pos];
+
+        if (current.type == TokenType::IF) {
+            ifCount++;
+            (inElseBlock ? elseBranch : ifBranch).push_back(consume());
         }
-        else if (isInElseBlock) {
-            elseBody.push_back(consume());
+        else if (current.type == TokenType::ELSE) {
+            // Switch to else block only if we're at the current IF level
+            if (ifCount == 1) {
+                inElseBlock = true;
+                consume(TokenType::ELSE, "[ERROR]: Expected ELSE operation");
+            } else {
+                (inElseBlock ? elseBranch : ifBranch).push_back(consume());
+            }
+        }
+        else if (current.type == TokenType::END) {
+            ifCount--;
+            if (ifCount == 0) {
+                consume(TokenType::END, "[ERROR]: Expected END for IF"); // Final END
+                break;
+            } else {
+                (inElseBlock ? elseBranch : ifBranch).push_back(consume());
+            }
         }
         else {
-            ifBody.push_back(consume());
+            (inElseBlock ? elseBranch : ifBranch).push_back(consume());
         }
     }
 
-    if (m_pos >= m_tokens.size() || m_tokens[m_pos].type != TokenType::END) {
-        throw std::runtime_error("[ERROR]: Expected END after IF block");
-    }
+    // Execute the correct branch
+    const std::vector<Token> tempTokens = m_tokens;
+    const size_t savedPos = m_pos;
 
-    consume(TokenType::END, "[ERROR]: Expected END for IF"); // Consume END
-    ifEndPos = m_pos;
-    originalTokens = m_tokens;
+    m_tokens = conditionIsTrue ? ifBranch : elseBranch;
+    m_pos = 0;
+    execute();
 
-    if (conditionIsTrue) {
-        m_tokens = ifBody;
-        m_pos = 0;
-        execute();
-    }
-    else {
-        m_tokens = elseBody;
-        m_pos = 0;
-        execute();
-    }
-
-    m_pos = ifEndPos;
-    m_tokens = originalTokens;
+    // Restore the original token stream and position
+    m_tokens = tempTokens;
+    m_pos = savedPos;
 }
 
 /**
@@ -689,49 +679,53 @@ void Interpreter::executeIf() {
 void Interpreter::executeWhile() {
     consume(TokenType::WHILE, "[ERROR]: Expected WHILE operation");
 
-    std::vector<Token> conditionTokens;
-    std::vector<Token> bodyTokens;
-
-    size_t whileEndPos = 0;
-    bool isInBodyBlock = false;
-    while (m_pos < m_tokens.size() && (m_tokens[m_pos].type != TokenType::END)) {
-        if (m_tokens[m_pos].type == TokenType::DO) {
-            isInBodyBlock = true;
-            consume(TokenType::DO, "[ERROR]: Expected DO operation");
-        }
-        else if (isInBodyBlock) {
-            bodyTokens.push_back(consume());
-        }
-        else {
-            conditionTokens.push_back(consume());
-        }
+    // Find DO and END token positions
+    size_t doIndex = m_pos;
+    while (doIndex < m_tokens.size() && m_tokens[doIndex].type != TokenType::DO) {
+        doIndex++;
+    }
+    if (doIndex == m_tokens.size()) {
+        throw std::runtime_error("[ERROR]: Expected DO token in WHILE block");
     }
 
-    if (m_pos >= m_tokens.size() || m_tokens[m_pos].type != TokenType::END) {
-        throw std::runtime_error("Expected END after WHILE-DO block");
+    size_t endIndex = doIndex;
+    int nestedWhileCount = 1;
+    while (endIndex < m_tokens.size() && nestedWhileCount > 0) {
+        if (m_tokens[endIndex].type == TokenType::WHILE) nestedWhileCount++;
+        else if (m_tokens[endIndex].type == TokenType::END) nestedWhileCount--;
+        endIndex++;
+    }
+    if (nestedWhileCount != 0) {
+        throw std::runtime_error("[ERROR]: Expected matching END token for WHILE");
     }
 
-    consume(TokenType::END, "[ERROR]: Expected END for WHILE-DO"); // Consume END
-    whileEndPos = m_pos;
-    const std::vector<Token> afterWhileTokens = m_tokens;
+    // Extract condition and body tokens
+    const std::vector<Token> conditionTokens(m_tokens.begin() + m_pos, m_tokens.begin() + doIndex);
+    const std::vector<Token> bodyTokens(m_tokens.begin() + doIndex + 1, m_tokens.begin() + endIndex - 1);
+
+    // Update m_pos past the WHILE block
+    m_pos = endIndex;
+
+    // Save the rest of the tokens to continue execution after loop
+    const std::vector<Token> remainingTokens(m_tokens.begin() + m_pos, m_tokens.end());
 
     while (true) {
-        // execute condition
+        // Execute condition
         m_tokens = conditionTokens;
         m_pos = 0;
         execute();
 
         if (m_stack->empty()) {
-            throw std::runtime_error("Stack underflow: WHILE condition result");
+            throw std::runtime_error("[ERROR]: Stack underflow after WHILE condition");
         }
 
-        StackValue conditionResult = m_stack->pop();
+        auto conditionResult = m_stack->pop();
+        const bool conditionIsTrue = std::holds_alternative<int>(conditionResult) && std::get<int>(conditionResult) != 0;
 
-        // Exit loop if the condition is false
-        if (const bool conditionIsTrue = std::holds_alternative<int>(conditionResult) && (std::get<int>(conditionResult) != 0); !conditionIsTrue) {
-            m_pos = whileEndPos;
-            m_tokens = afterWhileTokens;
-            execute();
+        if (!conditionIsTrue) {
+            // Condition false, exit loop and restore remaining tokens
+            m_tokens = remainingTokens;
+            m_pos = 0;
             break;
         }
 
@@ -741,6 +735,7 @@ void Interpreter::executeWhile() {
         execute();
     }
 }
+
 
 /**
  * Defines a new variable in the interpreter's symbol table.
@@ -873,7 +868,7 @@ void Interpreter::executeStoreVariable() {
  *
  * @throws std::runtime_error if the stack is empty.
  */
-void Interpreter::executeZeroCheck() const {
+void Interpreter::executeZeroCheck() {
     if (m_stack->empty()) {
         throw std::runtime_error("[ERROR]: Stack underflow for zero check");
     }
@@ -881,6 +876,8 @@ void Interpreter::executeZeroCheck() const {
     const StackValue value = m_stack->pop();
     const int int_a = GetIntOrThrow(value);
     m_stack->push(int_a == 0);
+
+    consume(TokenType::ZERO_CHECK, "Expected ?");
 }
 
 /**
@@ -902,7 +899,6 @@ void Interpreter::executeZeroCheck() const {
 void Interpreter::execute() {
     while (m_pos < m_tokens.size()) {
         const auto&[type, value] = m_tokens[m_pos];
-        // std::cout << tokenTypeToString(type) << std::endl;
         try {
             if (type == TokenType::INT_LITERAL || type == TokenType::STR_LITERAL) {
                 executePush(value);
@@ -916,9 +912,25 @@ void Interpreter::execute() {
             }
         }
         catch (const std::runtime_error& e) {
-            std::cerr << "[ERROR]: " << e.what() << std::endl;
-            std::cerr << "m_pos: " << m_pos << ", m_tokens.size(): " << m_tokens.size() << std::endl;
-            std::cerr << "Token type: " << tokenTypeToString(type) << std::endl;
+            std::cerr << "\n[ERROR]: Runtime error encountered!" << std::endl;
+            std::cerr << "Message      : " << e.what() << std::endl;
+            std::cerr << "Current Pos  : " << m_pos << " / " << m_tokens.size() << std::endl;
+
+            if (m_pos < m_tokens.size()) {
+                const Token& currentToken = m_tokens[m_pos];
+                std::cerr << "Token Type   : " << tokenTypeToString(currentToken.type) << std::endl;
+
+                // Show token value depending on variant type
+                std::visit([](auto&& arg) {
+                    std::cerr << "Token Value  : " << arg << std::endl;
+                }, currentToken.value);
+            } else {
+                std::cerr << "Token        : <Position beyond token list>" << std::endl;
+            }
+
+            std::cerr << "Suggestion   : Check the token and surrounding code near position " << m_pos << std::endl;
+            std::cerr << "Execution halted.\n" << std::endl;
+
             exit(EXIT_FAILURE);
         }
     }

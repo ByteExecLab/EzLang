@@ -10,7 +10,7 @@
 #include <variant>
 #include <vector>
 
-using StackValue = std::variant<int, std::string>;
+using StackValue = std::variant<int, double, std::string>;
 
 class Memory {
 public:

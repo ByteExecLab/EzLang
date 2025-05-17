@@ -11,7 +11,7 @@
 #include "Stack.h"
 #include "tokenizer.h"
 
-using StackValue = std::variant<int, std::string>;
+using StackValue = std::variant<int, double, std::string>;
 
 class Interpreter {
 public:
@@ -115,19 +115,6 @@ private:
      */
     void executeNip();
 
-    /**
-     * Executes the TUCK operation on the stack.
-     *
-     * The TUCK operation duplicates the top value of the stack and places it two
-     * positions down, rearranging the stack order. This method requires at least
-     * two elements on the stack to perform the operation; otherwise, an exception
-     * is thrown.
-     *
-     * @throws std::runtime_error Thrown if there are fewer than two elements
-     * present on the stack when the method is called.
-     */
-    void executeTuck();
-
 
     /**
      * Executes the 'print' operation, printing the value on the top of the stack.
@@ -213,7 +200,7 @@ private:
      *
      * @throw std::runtime_error If the stack is empty.
      */
-    void executeZeroCheck() const;
+    void executeZeroCheck();
 
     /**
      * Executes an IF-ELSE conditional block in the interpreted code.
@@ -265,7 +252,7 @@ private:
      *
      * @param value A const reference to the std::variant whose value is to be printed.
      */
-    static void printVariant(const std::variant<int, std::string>& value);
+    static void printVariant(const StackValue& value);
 
     /**
      * Defines a new variable with an initial value in the interpreter.
@@ -320,7 +307,7 @@ private:
      * @return True if the value matches the specified type, otherwise false.
      */
     template<class T>
-    static bool isOfType(std::variant<int, std::string> &value);
+    static bool isOfType(StackValue &value);
 
 
     /**
@@ -332,7 +319,7 @@ private:
      * @return The integer value held within the variant.
      * @throws std::runtime_error if the variant does not hold an integer value.
      */
-    static int GetIntOrThrow(const std::variant<int, std::string>& value);
+    static int GetIntOrThrow(const StackValue& value);
 
     /**
      * Retrieves the string value from a variant, or throws an exception if the variant
@@ -343,7 +330,7 @@ private:
      * @return The string value held within the variant.
      * @throws std::runtime_error if the variant does not hold a string value.
      */
-    static std::string GetStringOrThrow(const std::variant<int, std::string>& value);
+    static std::string GetStringOrThrow(const StackValue& value);
 
     /**
      * Retrieves the current token being processed by the interpreter.

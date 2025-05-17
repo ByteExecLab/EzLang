@@ -1,7 +1,7 @@
 #include "tokenizer.h"
 
 #include <iostream>
-#include <bits/ostream.tcc>
+#include <unordered_map>
 
 tokenizer::tokenizer(std::string source): m_source(std::move(source)) {}
 
@@ -18,6 +18,22 @@ std::vector<Token> tokenizer::tokenize() {
     std::vector<Token> tokens;
     std::string buf;
 
+    static const std::unordered_map<std::string, TokenType> keywords = {
+        {"dup", TokenType::DUP},
+        {"swap", TokenType::SWAP},
+        {"over", TokenType::OVER},
+        {"nip", TokenType::NIP},
+        {"tuck", TokenType::TUCK},
+        {"drop", TokenType::DROP},
+        {"const", TokenType::CONST},
+        {"print", TokenType::PRINT},
+        {"if", TokenType::IF},
+        {"else", TokenType::ELSE},
+        {"while", TokenType::WHILE},
+        {"do", TokenType::DO},
+        {"end", TokenType::END},
+    };
+
     while (peek().has_value()) {
         switch (const char c = consume()) {
             case ' ':
@@ -26,41 +42,38 @@ std::vector<Token> tokenizer::tokenize() {
             case ';':
                 while (peek().has_value() && peek().value() != '\n') consume();
                 break; // Skip comments
-            case '+': tokens.push_back({TokenType::ADD}); break;
-            case '-': tokens.push_back({TokenType::SUB}); break;
-            case '*': tokens.push_back({TokenType::MUL}); break;
-            case '/': tokens.push_back({TokenType::DIV}); break;
-            case '%': tokens.push_back({TokenType::MOD}); break;
-            case '=': tokens.push_back({TokenType::EQUALS}); break;
-            case '?': tokens.push_back({TokenType::ZERO_CHECK}); break;
+            case '+': tokens.push_back({TokenType::ADD, '+'}); break;
+            case '-': tokens.push_back({TokenType::SUB, '-'}); break;
+            case '*': tokens.push_back({TokenType::MUL, '*'}); break;
+            case '/': tokens.push_back({TokenType::DIV, '/'}); break;
+            case '%': tokens.push_back({TokenType::MOD, '%'}); break;
+            case '=': tokens.push_back({TokenType::EQUALS, '='}); break;
+            case '?': tokens.push_back({TokenType::ZERO_CHECK, '?'}); break;
             case '!':
-                if (peek().value() == '=') {
+                if (peek().has_value() && peek().value() == '=') {
                     consume();
-                    tokens.push_back({TokenType::NOT_EQUALS});
+                    tokens.push_back({TokenType::NOT_EQUALS, std::string{}});
                 }
                 else {
-                    consume();
-                    tokens.push_back({TokenType::STORE_VARIABLE});
+                    tokens.push_back({TokenType::STORE_VARIABLE, std::string{}});
                 }
                 break;
             case '<':
-                consume();
-                if (peek().value() == '=') {
+                if (peek().has_value() && peek().value() == '=') {
                     consume();
-                    tokens.push_back({TokenType::LESS_THAN_EQUALS});
+                    tokens.push_back({TokenType::LESS_THAN_EQUALS, std::string{}});
                 }
                 else {
-                    tokens.push_back({TokenType::LESS_THAN});
+                    tokens.push_back({TokenType::LESS_THAN, std::string{}});
                 }
                 break;
             case '>':
-                consume();
-                if (peek().value() == '=') {
+                if (peek().has_value() && peek().value() == '=') {
                     consume();
-                    tokens.push_back({TokenType::GREATER_THAN_EQUALS});
+                    tokens.push_back({TokenType::GREATER_THAN_EQUALS, std::string{}});
                 }
                 else {
-                    tokens.push_back({TokenType::GREATER_THAN});
+                    tokens.push_back({TokenType::GREATER_THAN, std::string{}});
                 }
                 break;
             case '"':
@@ -73,49 +86,67 @@ std::vector<Token> tokenizer::tokenize() {
                     tokens.push_back({TokenType::STR_LITERAL, buf});
                     buf.clear();
                 } else {
-                    std::cerr << "Unterminated string literal" << std::endl;
+                    std::cerr << "Error at line " << m_line << ", column " << m_column << ": Unterminated string literal" << std::endl;
+                    printErrorContext();
                     exit(EXIT_FAILURE);
                 }
                 break;
                 case '@': {
-                    tokens.push_back({TokenType::LOAD_VARIABLE});
+                    tokens.push_back({TokenType::LOAD_VARIABLE, std::string{}});
                     break;
                 }
             default:
                 if (std::isalpha(c)) {
-                    buf += c;
+                   buf += c;
                     while (peek().has_value() && std::isalnum(peek().value())) {
                         buf += consume();
                     }
-                    if (buf == "dup") tokens.push_back({TokenType::DUP});
-                    else if (buf == "swap") tokens.push_back({TokenType::SWAP});
-                    else if (buf == "over") tokens.push_back({TokenType::OVER});
-                    else if (buf == "nip") tokens.push_back({TokenType::NIP});
-                    else if (buf == "tuck") tokens.push_back({TokenType::TUCK});
-                    else if (buf == "drop") tokens.push_back({TokenType::DROP});
 
-                    // Variables
-                    else if (buf == "const") tokens.push_back({TokenType::CONST});
-                    //
-                    else if (buf == "print")tokens.push_back({TokenType::PRINT});
-                    else if (buf == "if")   tokens.push_back({TokenType::IF});
-                    else if (buf == "else") tokens.push_back({TokenType::ELSE});
-                    else if (buf == "while")tokens.push_back({TokenType::WHILE});
-                    else if (buf == "do")   tokens.push_back({TokenType::DO});
-                    else if (buf == "end")  tokens.push_back({TokenType::END});
+                   if (const auto it = keywords.find(buf); it != keywords.end()) {
+                        tokens.push_back({it->second, std::string{}});
+                    }
                     else {
                         tokens.push_back({TokenType::IDENTIFIER, buf});
                     }
                     buf.clear();
-                } else if (std::isdigit(c)) {
+                }
+                else if (isdigit(c)) {
                     buf += c;
+                    bool isFloat = false;
+
+                    // Read digits before the decimal point
                     while (peek().has_value() && std::isdigit(peek().value())) {
                         buf += consume();
                     }
-                    tokens.push_back({TokenType::INT_LITERAL, std::stoi(buf)});
+
+                    // Check if the next char is '.' for float
+                    if (peek().has_value() && peek().value() == '.') {
+                        isFloat = true;
+                        buf += consume();  // consume '.'
+
+                        // Read digits after a decimal point
+                        while (peek().has_value() && std::isdigit(peek().value())) {
+                            buf += consume();
+                        }
+                    }
+
+                    try {
+                        if (isFloat) {
+                            tokens.push_back({TokenType::FLOAT_LITERAL, std::stod(buf)});
+                        } else {
+                            tokens.push_back({TokenType::INT_LITERAL, std::stoi(buf)});
+                        }
+                    } catch (const std::exception& e) {
+                        std::cerr << "Number parsing error: " << e.what() << std::endl;
+                        printErrorContext();
+                        exit(EXIT_FAILURE);
+                    }
+
                     buf.clear();
-                } else {
-                    std::cerr << "Unexpected character: " << c << std::endl;
+                }
+                else {
+                    std::cerr << "Error at line " << m_line << ", column " << m_column << ": Unexpected character '" << c << "'" << std::endl;
+                    printErrorContext();
                     exit(EXIT_FAILURE);
                 }
         }
@@ -144,7 +175,30 @@ std::optional<char> tokenizer::peek(const size_t offset) const {
  * @return The character that was consumed.
  */
 char tokenizer::consume() {
-    return m_source.at(m_pos++);
+    const char c = m_source.at(m_pos++);
+    if (c == '\n') {
+        m_line++;
+        m_column = 1;
+    } else {
+        m_column++;
+    }
+    return c;
 }
+
+void tokenizer::printErrorContext() const {
+    size_t line_start = m_pos;
+    while (line_start > 0 && m_source[line_start-1] != '\n') {
+        line_start--;
+    }
+    size_t line_end = m_pos;
+    while (line_end < m_source.size() && m_source[line_end] != '\n') {
+        line_end++;
+    }
+    const std::string line_str = m_source.substr(line_start, line_end - line_start);
+    std::cerr << line_str << std::endl;
+    for (size_t i = 1; i < m_column; i++) std::cerr << " ";
+    std::cerr << "^" << std::endl;
+}
+
 
 

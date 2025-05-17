@@ -1,17 +1,18 @@
 #ifndef TOKENIZER_H
 #define TOKENIZER_H
 
+#include <cstdint>
 #include <map>
 #include <optional>
 #include <string>
 #include <variant>
 #include <vector>
 
-enum class TokenType {
+enum class TokenType: uint8_t {
     DUP, DROP, SWAP, OVER, NIP, TUCK,
 
     // System
-    PRINT, INT_LITERAL, STR_LITERAL, IDENTIFIER,
+    PRINT, INT_LITERAL, STR_LITERAL, IDENTIFIER, FLOAT_LITERAL,
 
     // Variables
     CONST, LOAD_VARIABLE, STORE_VARIABLE,
@@ -28,7 +29,13 @@ enum class TokenType {
 
 struct Token {
     TokenType type;
-    std::variant<int, std::string> value;
+    std::variant<int, double, std::string> value;
+
+    explicit Token(const TokenType t) : type(t), value(0) {} // Default int 0 for tokens without value
+    Token(const TokenType t, int v) : type(t), value(v) {}
+    Token(const TokenType t, double v) : type(t), value(v) {}
+    Token(const TokenType t, const std::string &v) : type(t), value(v) {}
+    Token(const TokenType t, std::variant<int, double, std::string> v) : type(t), value(std::move(v)) {}
 };
 
 class tokenizer {
@@ -43,9 +50,13 @@ private:
     std::optional<char> peek(size_t offset = 0) const;
     char consume();
 
+    void printErrorContext() const;
+
 private:
     std::string m_source;
     size_t m_pos = 0;
+    size_t m_line = 1;
+    size_t m_column = 1;
 };
 
 inline std::string tokenTypeToString(const TokenType type) {
@@ -83,7 +94,12 @@ inline std::string tokenTypeToString(const TokenType type) {
         {TokenType::GREATER_THAN_EQUALS, "GREATER_THAN_EQUALS"},
         {TokenType::ZERO_CHECK, "ZERO_CHECK"}
     };
-    return typeStrings[type];
+
+    if (const auto it = typeStrings.find(type); it != typeStrings.end()) {
+        return it->second;
+    }
+
+    return "UNKNOWN_TOKEN_TYPE";
 }
 
 #endif //TOKENIZER_H

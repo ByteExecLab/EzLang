@@ -1,6 +1,28 @@
-; Fill stack
-100 1
+1           ; initialize counter to 1
+100         ; push limit (100)
 
+while  do     ; while counter <= limit
+
+    dup 15 % 0 = if
+        "FizzBuzz" print
+    else
+        dup 3 % 0 = if
+            "Fizz" print
+        else
+            dup 5 % 0 = if
+                "Buzz" print
+            else
+                print
+    end
+
+    1 +       ; increment counter
+end
+
+
+
+
+; Fill stack
+; 10 10
 
 ; + print
 ; - print
@@ -18,9 +40,10 @@
 ; over print
 ; dup print
 
-; 5 dup 2 > while do print 1 - dup end
+ ; 5 dup 2 > while do print 1 - dup end
 
-; = if "equal" print else "not equal" print end
+; 10 10 = if "equal" print else "not equal" print end
+; 1 ? if "zero" print drop else "not zero" print drop end
 
 ; Define a variable
 ; POPs the value from the stack and stores it in a variable
@@ -29,8 +52,6 @@
 ; Load variable
 ; Loads the value of the variable and pushes it onto the stack
 ; variable @
-
-; "yee" print
 
 ; Store value into a variable
 ; Type sensitive

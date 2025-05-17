@@ -11,7 +11,7 @@
 
 class Stack {
 private:
-    std::stack<std::variant<int, std::string>> m_stack;
+    std::stack<std::variant<int, double, std::string>> m_stack;
 
 public:
     /**
@@ -27,7 +27,7 @@ public:
      *
      * @param value The value to push onto the stack. This can be an integer or a string.
      */
-    void push(const std::variant<int, std::string>& value);
+    void push(const std::variant<int, double, std::string>& value);
 
     /**
      * Duplicates the top element of the stack and pushes it onto the stack.
@@ -42,7 +42,7 @@ public:
      * @return The top value of the stack, which can be an integer or a string.
      * @throws std::runtime_error If the stack is empty.
      */
-    std::variant<int, std::string> pop();
+    std::variant<int, double, std::string> pop();
 
     /**
      * Returns the top value of the stack without removing it.
@@ -50,7 +50,7 @@ public:
      * @return The top value of the stack, which can be an integer or a string.
      * @throws std::runtime_error If the stack is empty.
      */
-    std::variant<int, std::string> peek();
+    std::variant<int, double, std::string> peek() const;
 
     /**
      * Swaps the top two elements of the stack.
@@ -69,6 +69,33 @@ public:
      * @throws std::runtime_error If the stack is empty.
      */
     void drop();
+
+    /**
+     * Copies the second element from the top of the stack and pushes it onto the stack.
+     *
+     * The method duplicates the second element on the stack and places it on top.
+     *
+     * @throws std::runtime_error If the stack contains fewer than two elements.
+     */
+    void over();
+
+    /**
+     * Moves the top element of the stack to the second position, duplicating it.
+     *
+     * The method takes the top element of the stack, temporarily removes the top two elements,
+     * pushes the original top element back onto the stack, followed by the second element,
+     * and then pushes the original top element again.
+     *
+     * @throws std::runtime_error If the stack contains fewer than two elements.
+     */
+    void tuck();
+
+    /**
+     * Removes all elements from the stack.
+     *
+     * After calling this method, the stack will be empty.
+     */
+    void clear();
 
     /**
      * Returns the number of elements in the stack.
