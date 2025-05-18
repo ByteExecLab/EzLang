@@ -254,7 +254,7 @@ void Interpreter::executePrint() {
         throw std::runtime_error("[ERROR]: Stack underflow for print operation");
     }
 
-    printVariant(m_stack->peek());
+    printVariant(m_stack->pop());
 }
 
 /**
