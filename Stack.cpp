@@ -4,10 +4,12 @@
 
 #include "Stack.h"
 
+#include <iosfwd>
 #include <iostream>
-#include <ostream>
 #include <stdexcept>
 #include <variant>
+#include <vector>
+#include "Interpreter.h"
 
 /**
  * Pushes a value onto the stack.
@@ -32,6 +34,21 @@ void Stack::dup() {
     const auto value = m_stack.top();
     m_stack.push(value);
 }
+
+
+std::vector<StackValue> Stack::getContents() const {
+    std::vector<StackValue> values;
+    std::stack<StackValue> temp = m_stack;
+
+    while (!temp.empty()) {
+        values.push_back(temp.top());
+        temp.pop();
+    }
+
+    std::reverse(values.begin(), values.end());
+    return values;
+}
+
 
 /**
  * Copies the second-to-top element of the stack and pushes it onto the stack.
@@ -125,6 +142,7 @@ void Stack::swap() {
     m_stack.push(value1);
     m_stack.push(value2);
 }
+
 
 /**
  * Removes the top element from the stack.

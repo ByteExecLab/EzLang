@@ -11,4 +11,5 @@ add_executable(ezlang main.cpp
         Stack.cpp
         Stack.h
         Memory.cpp
-        Memory.h)
+        Memory.h
+        Common.h)

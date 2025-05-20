@@ -4,14 +4,11 @@
 #include <map>
 #include <memory>
 #include <string>
-#include <variant>
 #include <vector>
 
 #include "Memory.h"
 #include "Stack.h"
 #include "tokenizer.h"
-
-using StackValue = std::variant<int, double, std::string>;
 
 class Interpreter {
 public:
@@ -26,7 +23,7 @@ public:
      * interpreted. The constructor takes ownership of this vector.
      * @param stack
      */
-    explicit Interpreter(std::vector<Token> tokens, std::shared_ptr<Stack> stack);
+    explicit Interpreter(std::vector<Token> tokens, Stack stack);
 
 
     /**
@@ -124,6 +121,8 @@ private:
      */
     void executePrint();
 
+    void executeTrace();
+
     /**
      * Pushes a value onto the stack managed by the Interpreter.
      *
@@ -134,7 +133,7 @@ private:
      * @param value The value to be pushed onto the stack. It is provided
      * as a constant reference to avoid unnecessary copying.
      */
-    void executePush(const StackValue &value) const;
+    void executePush(const StackValue &value);
 
     /**
      * Executes a string literal token and pushes its value onto the stack.
@@ -340,6 +339,7 @@ private:
      *
      * @return The token at the current position in the token sequence.
      */
+    [[nodiscard]]
     Token getCurrentToken() const;
 
 private:
@@ -361,7 +361,7 @@ private:
      * or handling control flows. Ownership of the stack is shared, ensuring proper
      * memory management across components.
      */
-    std::shared_ptr<Stack> m_stack;
+    Stack m_stack;
 
 
     /**
@@ -384,7 +384,7 @@ private:
      * component that references it. The Memory object handles storage and
      * retrieval of data required for the execution process.
      */
-    std::shared_ptr<Memory> m_memory;
+    Memory m_memory;
 
     /**
      * Tracks the next available memory address for allocation.

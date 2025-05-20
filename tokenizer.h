@@ -24,7 +24,10 @@ enum class TokenType: uint8_t {
     ADD, SUB, MUL, DIV, MOD,
 
     // Logical
-    EQUALS,NOT_EQUALS, LESS_THAN, LESS_THAN_EQUALS, GREATER_THAN, GREATER_THAN_EQUALS, ZERO_CHECK
+    EQUALS,NOT_EQUALS, LESS_THAN, LESS_THAN_EQUALS, GREATER_THAN, GREATER_THAN_EQUALS, ZERO_CHECK,
+
+    // Debug
+    TRACE,
 };
 
 struct Token {
@@ -92,7 +95,10 @@ inline std::string tokenTypeToString(const TokenType type) {
         {TokenType::LESS_THAN_EQUALS, "LESS_THAN_EQUALS"},
         {TokenType::GREATER_THAN, "GREATER_THAN"},
         {TokenType::GREATER_THAN_EQUALS, "GREATER_THAN_EQUALS"},
-        {TokenType::ZERO_CHECK, "ZERO_CHECK"}
+        {TokenType::ZERO_CHECK, "ZERO_CHECK"},
+
+        // Debug
+        {TokenType::TRACE, "TRACE"},
     };
 
     if (const auto it = typeStrings.find(type); it != typeStrings.end()) {

@@ -32,6 +32,7 @@ std::vector<Token> tokenizer::tokenize() {
         {"while", TokenType::WHILE},
         {"do", TokenType::DO},
         {"end", TokenType::END},
+        {"trace", TokenType::TRACE}
     };
 
     while (peek().has_value()) {
@@ -42,38 +43,38 @@ std::vector<Token> tokenizer::tokenize() {
             case ';':
                 while (peek().has_value() && peek().value() != '\n') consume();
                 break; // Skip comments
-            case '+': tokens.push_back({TokenType::ADD, '+'}); break;
-            case '-': tokens.push_back({TokenType::SUB, '-'}); break;
-            case '*': tokens.push_back({TokenType::MUL, '*'}); break;
-            case '/': tokens.push_back({TokenType::DIV, '/'}); break;
-            case '%': tokens.push_back({TokenType::MOD, '%'}); break;
-            case '=': tokens.push_back({TokenType::EQUALS, '='}); break;
-            case '?': tokens.push_back({TokenType::ZERO_CHECK, '?'}); break;
+            case '+': tokens.emplace_back(TokenType::ADD, '+'); break;
+            case '-': tokens.emplace_back(TokenType::SUB, '-'); break;
+            case '*': tokens.emplace_back(TokenType::MUL, '*'); break;
+            case '/': tokens.emplace_back(TokenType::DIV, '/'); break;
+            case '%': tokens.emplace_back(TokenType::MOD, '%'); break;
+            case '=': tokens.emplace_back(TokenType::EQUALS, '='); break;
+            case '?': tokens.emplace_back(TokenType::ZERO_CHECK, '?'); break;
             case '!':
                 if (peek().has_value() && peek().value() == '=') {
                     consume();
-                    tokens.push_back({TokenType::NOT_EQUALS, std::string{}});
+                    tokens.emplace_back(TokenType::NOT_EQUALS, std::string{});
                 }
                 else {
-                    tokens.push_back({TokenType::STORE_VARIABLE, std::string{}});
+                    tokens.emplace_back(TokenType::STORE_VARIABLE, std::string{});
                 }
                 break;
             case '<':
                 if (peek().has_value() && peek().value() == '=') {
                     consume();
-                    tokens.push_back({TokenType::LESS_THAN_EQUALS, std::string{}});
+                    tokens.emplace_back(TokenType::LESS_THAN_EQUALS, std::string{});
                 }
                 else {
-                    tokens.push_back({TokenType::LESS_THAN, std::string{}});
+                    tokens.emplace_back(TokenType::LESS_THAN, std::string{});
                 }
                 break;
             case '>':
                 if (peek().has_value() && peek().value() == '=') {
                     consume();
-                    tokens.push_back({TokenType::GREATER_THAN_EQUALS, std::string{}});
+                    tokens.emplace_back(TokenType::GREATER_THAN_EQUALS, std::string{});
                 }
                 else {
-                    tokens.push_back({TokenType::GREATER_THAN, std::string{}});
+                    tokens.emplace_back(TokenType::GREATER_THAN, std::string{});
                 }
                 break;
             case '"':
@@ -83,7 +84,7 @@ std::vector<Token> tokenizer::tokenize() {
                 }
                 if (peek().has_value()) {
                     consume();
-                    tokens.push_back({TokenType::STR_LITERAL, buf});
+                    tokens.emplace_back(TokenType::STR_LITERAL, buf);
                     buf.clear();
                 } else {
                     std::cerr << "Error at line " << m_line << ", column " << m_column << ": Unterminated string literal" << std::endl;
@@ -92,7 +93,7 @@ std::vector<Token> tokenizer::tokenize() {
                 }
                 break;
                 case '@': {
-                    tokens.push_back({TokenType::LOAD_VARIABLE, std::string{}});
+                    tokens.emplace_back(TokenType::LOAD_VARIABLE, std::string{});
                     break;
                 }
             default:
@@ -103,10 +104,10 @@ std::vector<Token> tokenizer::tokenize() {
                     }
 
                    if (const auto it = keywords.find(buf); it != keywords.end()) {
-                        tokens.push_back({it->second, std::string{}});
+                        tokens.emplace_back(it->second, std::string{});
                     }
                     else {
-                        tokens.push_back({TokenType::IDENTIFIER, buf});
+                        tokens.emplace_back(TokenType::IDENTIFIER, buf);
                     }
                     buf.clear();
                 }
@@ -132,9 +133,9 @@ std::vector<Token> tokenizer::tokenize() {
 
                     try {
                         if (isFloat) {
-                            tokens.push_back({TokenType::FLOAT_LITERAL, std::stod(buf)});
+                            tokens.emplace_back(TokenType::FLOAT_LITERAL, std::stod(buf));
                         } else {
-                            tokens.push_back({TokenType::INT_LITERAL, std::stoi(buf)});
+                            tokens.emplace_back(TokenType::INT_LITERAL, std::stoi(buf));
                         }
                     } catch (const std::exception& e) {
                         std::cerr << "Number parsing error: " << e.what() << std::endl;

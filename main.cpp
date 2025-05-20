@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
     tokenizer tokenizer(source);
     auto tokens = tokenizer.tokenize();
 
-    auto stack = std::make_shared<Stack>();
+    auto stack = Stack();
     Interpreter(tokens, stack).execute();
 
     return EXIT_SUCCESS;

@@ -3,42 +3,45 @@
 #include <functional>
 #include <iostream>
 #include <map>
-#include <memory>
 #include <utility>
 #include <variant>
 
-Interpreter::Interpreter(std::vector<Token> tokens, std::shared_ptr<Stack> stack)
-    : m_stack(std::move(stack)), m_tokens(std::move(tokens)) {
-
-    // Initialize Stack
-    if (!m_stack) { m_stack = std::make_shared<Stack>(); }
-
-    // Initialize memory
-    if (!m_memory) { m_memory = std::make_shared<Memory>(1024); }
+Interpreter::Interpreter(std::vector<Token> tokens, Stack stack)
+    : m_stack(std::move(stack)), m_tokens(std::move(tokens)), m_memory(1024) {
 
     executionMap = {
         // Stack operations
         // TODO: Move below operations to stack class?
-        {TokenType::DUP, [this]() {
-            consume(TokenType::DUP, "[Error:dup]: Expected DUP operation");
-            m_stack->dup();
-        }},
-        {TokenType::SWAP, [this]() {
-            consume(TokenType::SWAP, "[Error:swap]: Expected SWAP operation");
-            m_stack->swap();
-        }},
-        {TokenType::DROP, [this]() {
-            consume(TokenType::DROP, "[Error:drop]: Expected DROP operation");
-            m_stack->drop();
-        }},
-        {TokenType::TUCK, [this]() {
-            consume(TokenType::TUCK, "[Error:tuck]: Expected TUCK operation");
-            m_stack->tuck();
-        }},
-        {TokenType::OVER, [this]() {
-            consume(TokenType::OVER, "[Error:over]: Expected OVER operation");
-            m_stack->over();
-        }},
+        {
+            TokenType::DUP, [this]() {
+                consume(TokenType::DUP, "[Error:dup]: Expected DUP operation");
+                m_stack.dup();
+            }
+        },
+        {
+            TokenType::SWAP, [this]() {
+                consume(TokenType::SWAP, "[Error:swap]: Expected SWAP operation");
+                m_stack.swap();
+            }
+        },
+        {
+            TokenType::DROP, [this]() {
+                consume(TokenType::DROP, "[Error:drop]: Expected DROP operation");
+                m_stack.drop();
+            }
+        },
+        {
+            TokenType::TUCK, [this]() {
+                consume(TokenType::TUCK, "[Error:tuck]: Expected TUCK operation");
+                m_stack.tuck();
+            }
+        },
+        {
+            TokenType::OVER, [this]() {
+                consume(TokenType::OVER, "[Error:over]: Expected OVER operation");
+                m_stack.over();
+            }
+        },
         {TokenType::NIP, [this] { executeNip(); }},
 
         // Binary operations
@@ -50,14 +53,15 @@ Interpreter::Interpreter(std::vector<Token> tokens, std::shared_ptr<Stack> stack
 
         // Variables
         {TokenType::CONST, [this]() { executeDefineVariable(); }},
-        { TokenType::IDENTIFIER, [this] {
-           if (peek(1)->type == TokenType::LOAD_VARIABLE) {
-               executeLoadVariable();
-           }
-            else if (peek(1)->type == TokenType::STORE_VARIABLE) {
-               executeStoreVariable();
+        {
+            TokenType::IDENTIFIER, [this] {
+                if (peek(1)->type == TokenType::LOAD_VARIABLE) {
+                    executeLoadVariable();
+                } else if (peek(1)->type == TokenType::STORE_VARIABLE) {
+                    executeStoreVariable();
+                }
             }
-        }},
+        },
 
         // Logical Operators
         {TokenType::EQUALS, [this]() { executeLogical(TokenType::EQUALS); }},
@@ -74,6 +78,7 @@ Interpreter::Interpreter(std::vector<Token> tokens, std::shared_ptr<Stack> stack
 
         // Utils
         {TokenType::PRINT, [this]() { executePrint(); }},
+        {TokenType::TRACE, [this] { executeTrace(); }}
     };
 }
 
@@ -250,11 +255,11 @@ std::optional<Token> Interpreter::peek(size_t offset) {
  */
 void Interpreter::executePrint() {
     consume(TokenType::PRINT, "[ERROR]: Expected PRINT");
-    if (m_stack->empty()) {
+    if (m_stack.empty()) {
         throw std::runtime_error("[ERROR]: Stack underflow for print operation");
     }
 
-    printVariant(m_stack->pop());
+    printVariant(m_stack.pop());
 }
 
 /**
@@ -267,8 +272,8 @@ void Interpreter::executePrint() {
  * stack and then consumes the next 'PUSH' token.
  *
  */
-void Interpreter::executePush(const StackValue &value) const {
-    m_stack->push(value);
+void Interpreter::executePush(const StackValue &value) {
+    m_stack.push(value);
 }
 
 /**
@@ -285,7 +290,7 @@ void Interpreter::executePush(const StackValue &value) const {
 void Interpreter::executeStrLiteral() {
     const auto [type, value] =
         consume(TokenType::STR_LITERAL, "[ERROR]: Expected string literal");
-    m_stack->push(value);
+    m_stack.push(value);
 }
 
 /**
@@ -303,8 +308,48 @@ void Interpreter::executeStrLiteral() {
  */
 void Interpreter::executeIntLiteral() {
     const auto [type, value] = consume(TokenType::INT_LITERAL, "[ERROR]: Expected integer literal");
-    m_stack->push(value);
+    m_stack.push(value);
 }
+
+#include <iomanip> // for std::setw, std::left
+
+void Interpreter::executeTrace() {
+    consume(TokenType::TRACE, "Expected Trace");
+
+    std::cout << "\n[TRACE] Current Stack State:\n";
+    std::cout << "-------------------------------------\n";
+    std::cout << std::left << std::setw(6) << "Index"
+              << std::setw(10) << "Type"
+              << "Value\n";
+    std::cout << "-------------------------------------\n";
+
+    const auto values = m_stack.getContents(); // safer than using pop()
+
+    for (size_t i = 0; i < values.size(); ++i) {
+        const auto& val = values[i];
+        std::cout << std::left << std::setw(6) << i;
+
+        std::visit([]<typename T0>(T0&& v) {
+            using T = std::decay_t<T0>;
+            if constexpr (std::is_same_v<T, int>) {
+                std::cout << std::setw(10) << "int" << v;
+            } else if constexpr (std::is_same_v<T, std::string>) {
+                std::cout << std::setw(10) << "string" << '"' << v << '"';
+            }
+        }, val);
+
+        std::cout << '\n';
+    }
+
+    if (values.empty()) {
+        std::cout << "[empty stack]\n";
+    }
+
+    std::cout << "-------------------------------------\n";
+    std::cout << "Top of stack is at index: " << (values.empty() ? 0 : values.size() - 1) << "\n\n";
+}
+
+
 
 /**
  * Executes the "over" operation on the stack managed by the interpreter.
@@ -318,17 +363,17 @@ void Interpreter::executeIntLiteral() {
  * indicating a stack underflow condition.
  */
 void Interpreter::executeOver() {
-    if (m_stack->size() < 2) {
+    if (m_stack.size() < 2) {
         throw std::runtime_error("[ERROR]: Stack underflow for over operation");
     }
 
     consume(TokenType::OVER, "[ERROR]: Expected over operation");
 
-    const StackValue top_value = m_stack->pop();
-    const StackValue second_value = m_stack->peek();
+    const StackValue top_value = m_stack.pop();
+    const StackValue second_value = m_stack.peek();
 
-    m_stack->push(top_value);
-    m_stack->push(second_value);
+    m_stack.push(top_value);
+    m_stack.push(second_value);
 }
 
 /**
@@ -343,20 +388,20 @@ void Interpreter::executeOver() {
  * @throws std::runtime_error Thrown if the stack contains fewer than two elements.
  */
 void Interpreter::executeNip() {
-    if (m_stack->size() < 2) {
+    if (m_stack.size() < 2) {
         throw std::runtime_error("[ERROR]: Stack underflow for nip operation");
     }
 
     consume(TokenType::NIP, "Expected NIP operation");
 
     // Get first value
-    const StackValue top_value = m_stack->pop();
+    const StackValue top_value = m_stack.pop();
 
     // Remove second value
-    m_stack->pop();
+    m_stack.pop();
 
     // Push the first value back
-    m_stack->push(top_value);
+    m_stack.push(top_value);
 }
 
 /**
@@ -376,12 +421,12 @@ void Interpreter::executeNip() {
  *
  */
 void Interpreter::executeBinary(const TokenType tokenType) {
-    if (m_stack->size() < 2) {
+    if (m_stack.size() < 2) {
         throw std::runtime_error("[ERROR]: Stack underflow for binary operation");
     }
 
-    StackValue l_value = m_stack->pop();
-    StackValue r_value = m_stack->pop();
+    StackValue l_value = m_stack.pop();
+    StackValue r_value = m_stack.pop();
     StackValue result;
 
     switch (tokenType) {
@@ -463,7 +508,7 @@ void Interpreter::executeBinary(const TokenType tokenType) {
         };
     }
 
-    m_stack->push(result);
+    m_stack.push(result);
 }
 
 /**
@@ -481,12 +526,12 @@ void Interpreter::executeBinary(const TokenType tokenType) {
  * @throws std::runtime_error if the stack contains fewer th two elements.
  */
 void Interpreter::executeLogical(const TokenType tokenType) {
-    if (m_stack->size() < 2) {
+    if (m_stack.size() < 2) {
         throw std::runtime_error("[ERROR]: Stack underflow for logical operation");
     }
 
-    StackValue l_value = m_stack->pop();
-    StackValue r_value = m_stack->pop();
+    StackValue l_value = m_stack.pop();
+    StackValue r_value = m_stack.pop();
 
     StackValue result;
 
@@ -583,7 +628,7 @@ void Interpreter::executeLogical(const TokenType tokenType) {
         };
     }
 
-    m_stack->push(result);
+    m_stack.push(result);
 }
 
 /*
@@ -597,12 +642,12 @@ void Interpreter::executeLogical(const TokenType tokenType) {
 void Interpreter::executeIf() {
     consume(TokenType::IF, "[ERROR]: Expected IF operation");
 
-    if (m_stack->empty()) {
+    if (m_stack.empty()) {
         throw std::runtime_error("Stack underflow: IF condition");
     }
 
     // POP condition from the stack
-    const StackValue conditionResult = m_stack->pop();
+    const StackValue conditionResult = m_stack.pop();
     const bool conditionIsTrue = std::holds_alternative<int>(conditionResult) && (std::get<int>(conditionResult) != 0);
 
     // Collect tokens
@@ -715,14 +760,13 @@ void Interpreter::executeWhile() {
         m_pos = 0;
         execute();
 
-        if (m_stack->empty()) {
+        if (m_stack.empty()) {
             throw std::runtime_error("[ERROR]: Stack underflow after WHILE condition");
         }
 
-        auto conditionResult = m_stack->pop();
-        const bool conditionIsTrue = std::holds_alternative<int>(conditionResult) && std::get<int>(conditionResult) != 0;
+        StackValue conditionResult = m_stack.pop();
 
-        if (!conditionIsTrue) {
+        if (const bool conditionIsTrue = std::holds_alternative<int>(conditionResult) && std::get<int>(conditionResult) != 0; !conditionIsTrue) {
             // Condition false, exit loop and restore remaining tokens
             m_tokens = remainingTokens;
             m_pos = 0;
@@ -779,13 +823,13 @@ void Interpreter::executeDefineVariable() {
         throw std::runtime_error("Expected END after identifier in CONST definition");
     }
 
-    if (m_stack->empty()) {
+    if (m_stack.empty()) {
         throw std::runtime_error("Stack underflow for variable definition");
     }
 
     // POP value from the stack
-    const StackValue value = m_stack->pop();
-    m_memory->write(address, value);
+    const StackValue value = m_stack.pop();
+    m_memory.write(address, value);
 
     consume(TokenType::END, "Expected END after variable declaration"); // Consume END
 }
@@ -806,8 +850,8 @@ void Interpreter::executeLoadVariable() {
 
     if (m_variables.contains(variableName)) {
         const uint32_t address = m_variables[variableName];
-        const StackValue value = m_memory->read(address);
-        m_stack->push(value);
+        const StackValue value = m_memory.read(address);
+        m_stack.push(value);
     }
     else {
         throw std::runtime_error("Variable not defined");
@@ -839,7 +883,7 @@ void Interpreter::executeLoadVariable() {
  * - Consumes the STORE_VARIABLE token to complete the operation.
  */
 void Interpreter::executeStoreVariable() {
-    if (m_stack->empty()) {
+    if (m_stack.empty()) {
         throw std::runtime_error("Stack underflow for variable store");
     }
 
@@ -849,8 +893,8 @@ void Interpreter::executeStoreVariable() {
     // TODO: Check type before storing
     if (m_variables.contains(variableName)) {
         const uint32_t address = m_variables[variableName];
-        const StackValue value = m_stack->pop();
-        m_memory->write(address, value);
+        const StackValue value = m_stack.pop();
+        m_memory.write(address, value);
     }
     else {
         throw std::runtime_error("Variable not defined");
@@ -869,13 +913,13 @@ void Interpreter::executeStoreVariable() {
  * @throws std::runtime_error if the stack is empty.
  */
 void Interpreter::executeZeroCheck() {
-    if (m_stack->empty()) {
+    if (m_stack.empty()) {
         throw std::runtime_error("[ERROR]: Stack underflow for zero check");
     }
 
-    const StackValue value = m_stack->pop();
+    const StackValue value = m_stack.pop();
     const int int_a = GetIntOrThrow(value);
-    m_stack->push(int_a == 0);
+    m_stack.push(int_a == 0);
 
     consume(TokenType::ZERO_CHECK, "Expected ?");
 }
@@ -900,7 +944,7 @@ void Interpreter::execute() {
     while (m_pos < m_tokens.size()) {
         const auto&[type, value] = m_tokens[m_pos];
         try {
-            if (type == TokenType::INT_LITERAL || type == TokenType::STR_LITERAL) {
+            if (type == TokenType::INT_LITERAL || type == TokenType::STR_LITERAL || type == TokenType::FLOAT_LITERAL) {
                 executePush(value);
                 consume();
             }

@@ -1,13 +1,10 @@
-//
-// Created by marek on 5/14/2025.
-//
-
 #ifndef STACK_H
 #define STACK_H
 #include <stack>
 #include <string>
 #include <variant>
-
+#include <vector>
+#include "Common.h"
 
 class Stack {
 private:
@@ -50,6 +47,7 @@ public:
      * @return The top value of the stack, which can be an integer or a string.
      * @throws std::runtime_error If the stack is empty.
      */
+    [[nodiscard]]
     std::variant<int, double, std::string> peek() const;
 
     /**
@@ -69,6 +67,9 @@ public:
      * @throws std::runtime_error If the stack is empty.
      */
     void drop();
+
+    [[nodiscard]]
+    std::vector<StackValue> getContents() const;
 
     /**
      * Copies the second element from the top of the stack and pushes it onto the stack.
