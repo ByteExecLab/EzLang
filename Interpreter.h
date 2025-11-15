@@ -126,7 +126,7 @@ private:
      * to the standard output.
      */
     void executePrint();
-    
+
     void executeTrace();
 
     void executeContinue();
@@ -338,6 +338,18 @@ private:
      * @throws std::runtime_error if the variant does not hold a string value.
      */
     static std::string GetStringOrThrow(const StackValue& value);
+
+    /**
+     * Check if value is numeric value
+     *
+     * @param v Value to check
+     * @return The boolean
+     */
+    static bool isNumber(const StackValue& v);
+
+    static double toDouble(const StackValue& v);
+
+    static bool bothInt(const StackValue& a, const StackValue& b);
 
     /**
      * Retrieves the current token being processed by the interpreter.

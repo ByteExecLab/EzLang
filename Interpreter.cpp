@@ -161,6 +161,31 @@ int Interpreter::GetIntOrThrow(const StackValue &value) {
     throw std::runtime_error("[ERROR]: Expected int value on stack");
 }
 
+bool Interpreter::isNumber(const StackValue &v) {
+    return std::holds_alternative<int>(v) || std::holds_alternative<double>(v);
+}
+
+bool Interpreter::bothInt(const StackValue &a, const StackValue &b) {
+    return std::holds_alternative<int>(a) && std::holds_alternative<int>(b);
+}
+
+
+double Interpreter::toDouble(const StackValue &v) {
+    return std::visit([]<typename T0>(T0&& x) -> double {
+        using T = std::decay_t<T0>;
+
+        if constexpr (std::is_same_v<T, int>) {
+            return static_cast<double>(x);
+        }
+
+        if constexpr (std::is_same_v<T, double>) {
+            return x;
+        }
+
+        throw std::runtime_error("[ERROR]: Expected number");
+    }, v);
+}
+
 /**
  * Retrieves the string value from a variant or throws an exception if the variant
  * does not hold a string.
@@ -429,86 +454,139 @@ void Interpreter::executeBinary(const TokenType tokenType) {
         throw std::runtime_error("[ERROR]: Stack underflow for binary operation");
     }
 
-    StackValue l_value = m_stack.pop();
-    StackValue r_value = m_stack.pop();
+    // Stack: [..., left, right]
+    StackValue r_value = m_stack.pop(); // TOP
+    StackValue l_value = m_stack.pop(); // Below TOP
+
+    // Result store
     StackValue result;
+
+    auto consumeOp = [&](TokenType t, const char* msg) {
+        consume(t, msg);
+    };
 
     switch (tokenType) {
         case TokenType::ADD: {
             // Consume ADD token
-            consume(TokenType::ADD, "[ERROR]: Expected ADD operation");
+            consumeOp(TokenType::ADD, "[ERROR]: Expected ADD operation");
 
-            if (isOfType<std::string>(l_value) && isOfType<std::string>(r_value)) {
-                result = GetStringOrThrow(l_value) + GetStringOrThrow(r_value);
+            // String concatenation
+            if (std::holds_alternative<std::string>(l_value) && std::holds_alternative<std::string>(r_value)) {
+                const auto& a = std::get<std::string>(l_value);
+                const auto& b = std::get<std::string>(r_value);
+                result = a + b;
             }
-            else if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
-                const int int_a = GetIntOrThrow(l_value);
-                const int int_b = GetIntOrThrow(r_value);
-                result = int_a + int_b;
+
+            // Numeric addition
+            else if (isNumber(l_value) && isNumber(r_value)) {
+                if (bothInt(l_value, r_value)) {
+                    int a = std::get<int>(l_value);
+                    int b = std::get<int>(r_value);
+                    result = a + b;
+                } else {
+                    double a = toDouble(l_value);
+                    double b = toDouble(r_value);
+                    result = a + b;
+                }
             }
             else {
                 throw std::runtime_error("[ERROR]: Mismatched types for + operation");
-            } break;
+            }
+            break;
         };
         case TokenType::SUB: {
             // Consume SUB token
-            consume(TokenType::SUB, "[ERROR]: Expected SUB operation");
+            consumeOp(TokenType::SUB, "[ERROR]: Expected SUB operation");
 
-            if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
-                const int int_a = GetIntOrThrow(l_value);
-                const int int_b = GetIntOrThrow(r_value);
-                result = int_b - int_a;
-            } break;
+            if (!isNumber(l_value) && !isNumber(r_value)) {
+                throw std::runtime_error("[ERROR]: Mismatched types for - operation");
+            }
+
+            if (bothInt(l_value, r_value)) {
+                int a = std::get<int>(l_value);
+                int b = std::get<int>(r_value);
+
+                // Left - Right
+                result = a - b;
+            } else {
+                double a = toDouble(l_value);
+                double b = toDouble(r_value);
+                result = a - b;
+            }
+
+            break;
         }
         case TokenType::MUL: {
             // Consume MUL token
-            consume(TokenType::MUL, "[ERROR]: Expected MUL operation");
+            consumeOp(TokenType::MUL, "[ERROR]: Expected MUL operation");
 
-            if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
-                const int int_a = GetIntOrThrow(l_value);
-                const int int_b = GetIntOrThrow(r_value);
-                result = int_a * int_b;
-            }
-            else {
+            if (!isNumber(l_value) && !isNumber(r_value)) {
                 throw std::runtime_error("[ERROR]: Mismatched types for * operation");
-            } break;
+            }
+
+            if (bothInt(l_value, r_value)) {
+                int a = std::get<int>(l_value);
+                int b = std::get<int>(r_value);
+
+                result = a * b;
+            } else {
+                double a = toDouble(l_value);
+                double b = toDouble(r_value);
+
+                result = a * b;
+            }
+
+            break;
         }
         case TokenType::DIV: {
             // Consume DIV token
-            consume(TokenType::DIV, "[ERROR]: Expected DIV operation");
+            consumeOp(TokenType::DIV, "[ERROR]: Expected DIV operation");
 
-            if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
-                const int int_a = GetIntOrThrow(l_value);
-                const int int_b = GetIntOrThrow(r_value);
-                // Catch division by zero
-                if (int_b == 0) {
-                    throw std::runtime_error("[ERROR]: Division by zero");
-                }
-                result = int_a / int_b;
-            }
-            else {
+            if (!isNumber(l_value) && !isNumber(r_value)) {
                 throw std::runtime_error("[ERROR]: Mismatched types for / operation");
-            } break;
+            }
+
+            double a = toDouble(l_value);
+            double b = toDouble(r_value);
+
+            if (b == 0.0) {
+                throw std::runtime_error("[ERROR]: Division by zero");
+            }
+
+            // Int / Int = Int, else double
+            if (bothInt(l_value, r_value)) {
+                int ia = std::get<int>(l_value);
+                int ib = std::get<int>(r_value);
+
+                result = ia / ib; // Integer division
+            } else {
+                result = a / b;
+            }
+
+            break;;
+
         }
         case TokenType::MOD: {
             // Consume MOD token
-            consume(TokenType::MOD, "[ERROR]: Expected MOD operation");
+            consumeOp(TokenType::MOD, "[ERROR]: Expected MOD operation");
 
-            if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
-                const int int_a = GetIntOrThrow(l_value);
-                const int int_b = GetIntOrThrow(r_value);
-                // Catch division by zero
-                if (int_b == 0) {
-                    throw std::runtime_error("[ERROR]: Modulo by zero");
-                }
-                result = int_a % int_b;
+            // Modulo only for ints
+            if (!bothInt(l_value, r_value)) {
+                throw std::runtime_error("[ERROR]: Modulo only supported for INT types");
             }
-            else {
-                throw std::runtime_error("[ERROR]: Mismatched types for % operation");
-            } break;
+
+            int a = std::get<int>(l_value);
+            int b = std::get<int>(r_value);
+
+            if (b == 0) {
+                throw std::runtime_error("[ERROR]: Modulo by zero");
+            }
+
+            result = a % b; // left % right
+            break;
         }
         default: {
-            //
+            throw std::runtime_error("[ERROR]: Unknown binary operation");
         };
     }
 
