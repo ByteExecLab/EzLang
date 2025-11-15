@@ -21,8 +21,8 @@
 
 ; 5 while dup 0 > do dup print 1 - dup end
 
-; 10 10 = if "equal" print else "not equal" print end
-; 1 ? if "zero" print else "not zero" print end
+; 10 10 = if "equal" print else "not equal" print endif
+; 1 ? if "zero" print else "not zero" print endif
 
 ; Define a variable
 ; POPs the value from the stack and stores it in a variable

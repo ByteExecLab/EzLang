@@ -129,6 +129,8 @@ private:
 
     void executeTrace();
 
+    void executeContinue();
+
     /**
      * Pushes a value onto the stack managed by the Interpreter.
      *

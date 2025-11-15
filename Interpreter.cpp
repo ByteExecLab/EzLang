@@ -75,6 +75,7 @@ Interpreter::Interpreter(std::vector<Token> tokens, Stack stack)
         // Control flow
         {TokenType::IF, [this]() { executeIf(); }},
         {TokenType::WHILE, [this] { executeWhile(); }},
+        {TokenType::CONTINUE, [this] { executeContinue(); }},
 
         // Utils
         {TokenType::PRINT, [this]() { executePrint(); }},
@@ -349,6 +350,9 @@ void Interpreter::executeTrace() {
     std::cout << "Top of stack is at index: " << (values.empty() ? 0 : values.size() - 1) << "\n\n";
 }
 
+void Interpreter::executeContinue() {
+    consume(TokenType::CONTINUE, "[ERROR]: Expected CONTINUE");
+}
 
 
 /**
