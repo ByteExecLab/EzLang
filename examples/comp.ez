@@ -1,4 +1,15 @@
+5 5 = print
+5 3 = print
+5 3 != print
+5 3 < print
+3 5 < print
+5 5.0 = print
+
+"hi" "hi" = print
+"hi" "ho" = print
+"hi" "hi" != print
+
 5 ? print
 0 ? print
-"hello" ? print
+"hi" ? print
 "" ? print

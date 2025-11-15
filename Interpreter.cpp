@@ -568,27 +568,52 @@ void Interpreter::executeLogical(const TokenType op) {
 
     switch (op) {
         case TokenType::EQUALS: {
-            result = (l_value == r_value);
+            // string == string
+            if (std::holds_alternative<std::string>(l_value) && std::holds_alternative<std::string>(r_value)) {
+                result = (toString(l_value) == toString(r_value));
+            }
+            // numeric == numeric
+            else {
+                result = (toDouble(l_value) == toDouble(r_value));
+            }
+            consume(TokenType::EQUALS, "[ERROR]: Expected EQUALS operation");
             break;
         }
         case TokenType::NOT_EQUALS: {
-            result = !(l_value == r_value);
+            // string == string
+            if (std::holds_alternative<std::string>(l_value) && std::holds_alternative<std::string>(r_value)) {
+                result = (toString(l_value) != toString(r_value));
+            }
+            // numeric != numeric
+            else {
+                result = (toDouble(l_value) != toDouble(r_value));
+            }
+
+            consume(TokenType::NOT_EQUALS, "[ERROR]: Expected NOT_EQUALS operation");
             break;
         }
         case TokenType::LESS_THAN: {
-            result = toDouble(l_value) < toDouble(r_value);
+            result = (toDouble(l_value) < toDouble(r_value));
+
+            consume(TokenType::LESS_THAN, "[ERROR]: Expected LESS_THAN operation");
             break;
         }
         case TokenType::LESS_THAN_EQUALS: {
             result = toDouble(l_value) <= toDouble(r_value);
+
+            consume(TokenType::LESS_THAN_EQUALS, "[ERROR]: Expected LESS_THAN_EQUALS operation");
             break;
         }
         case TokenType::GREATER_THAN: {
-            result = toDouble(l_value) > toDouble(r_value);
+            result = (toDouble(l_value) > toDouble(r_value));
+
+            consume(TokenType::GREATER_THAN, "[ERROR]: Expected GREATER_THAN operation");
             break;
         }
         case TokenType::GREATER_THAN_EQUALS: {
-            result = toDouble(l_value) >= toDouble(r_value);
+            result = (toDouble(l_value) >= toDouble(r_value));
+
+            consume(TokenType::GREATER_THAN_EQUALS, "[ERROR]: Expected GREATER_THAN_EQUALS operation");
             break;
         }
         default: {
@@ -813,9 +838,10 @@ void Interpreter::executeStoreVariable() {
     consume(TokenType::STORE_VARIABLE, "Expected ! after IDENTIFIER. Got: " + tokenTypeToString(m_tokens[m_pos].type)); // consume END
 }
 
+
 bool Interpreter::executeBlock(const std::vector<Token> &block) {
-    auto oldTokens = m_tokens;
-    auto oldPos = m_pos;
+    const auto oldTokens = m_tokens;
+    const auto oldPos = m_pos;
 
     m_tokens = block;
     m_pos = 0;
@@ -937,23 +963,9 @@ void Interpreter::executeZeroCheck() {
 
     StackValue v = m_stack.pop();
 
-    const bool isZero = std::visit([]<typename T0>(T0&& value) -> bool {
-        using T = std::decay_t<T0>;
+    bool zeroLike = !isTruly(v);
 
-        if constexpr (std::is_same_v<T, int>) {
-            return value == 0;
-        }
-
-        if constexpr (std::is_same_v<T, double>) {
-            return value == 0.0;
-        }
-
-        if constexpr (std::is_same_v<T, std::string>) {
-            return value.empty();
-        }
-    }, v);
-
-    m_stack.push(isZero ? 1 : 0);
+    m_stack.push(zeroLike ? 1 : 0);
 }
 
 /**
