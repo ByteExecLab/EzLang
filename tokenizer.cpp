@@ -81,12 +81,18 @@ std::vector<Token> tokenizer::tokenize() {
                 }
                 break;
             case '"':
-                buf += consume(); // Consume the opening quote
+                // Opening quote has already been consumed above
+                buf.clear();
+
+                // Read until closing quite
                 while (peek().has_value() && peek().value() != '"') {
                     buf += consume();
+
+                    // DEBUG LINE
+                    // std::cout << buf << '\n';
                 }
                 if (peek().has_value()) {
-                    consume();
+                    consume(); // Consume the closing quote
                     tokens.emplace_back(TokenType::STR_LITERAL, buf);
                     buf.clear();
                 } else {

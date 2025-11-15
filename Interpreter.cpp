@@ -529,7 +529,7 @@ void Interpreter::executeBinary(const TokenType tokenType) {
  *
  * @throws std::runtime_error if the stack contains fewer th two elements.
  */
-void Interpreter::executeLogical(const TokenType tokenType) {
+void Interpreter::executeLogical(const TokenType op) {
     if (m_stack.size() < 2) {
         throw std::runtime_error("[ERROR]: Stack underflow for logical operation");
     }
@@ -537,102 +537,67 @@ void Interpreter::executeLogical(const TokenType tokenType) {
     StackValue l_value = m_stack.pop();
     StackValue r_value = m_stack.pop();
 
-    StackValue result;
+    // Helper lambda for numeric comparison
+    auto toDouble = [&](const StackValue& v) -> double {
+        return std::visit([](auto&& val) -> double {
+            using T = std::decay_t<decltype(val)>;
 
-    switch (tokenType) {
+            if constexpr (std::is_same_v<T, int>) {
+                return static_cast<double>(val);
+            }
+
+            if constexpr (std::is_same_v<T, double>) {
+                return val;
+            }
+
+            throw std::runtime_error("Expected number for comparison");
+        }, v);
+    };
+
+    // Helper labda for string comparison
+    auto toString = [&](const StackValue& v) -> std::string {
+        if (auto s = std::get_if<std::string>(&v)) {
+            return *s;
+        }
+
+        throw std::runtime_error("Expected string for comparison");
+    };
+
+    // Comparison result
+    bool result = false;
+
+    switch (op) {
         case TokenType::EQUALS: {
-            // Consume EQUALS token
-            consume(TokenType::EQUALS, "[ERROR]: Expected EQUALS operation");
-
-            if (isOfType<std::string>(l_value) && isOfType<std::string>(r_value)) {
-                result = GetStringOrThrow(r_value) == GetStringOrThrow(l_value);
-            }
-            else if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
-                const int int_a = GetIntOrThrow(l_value);
-                const int int_b = GetIntOrThrow(r_value);
-
-                result = int_b == int_a;
-            }
-            else {
-                throw std::runtime_error("[ERROR]: Mismatched types for = operation");
-            } break;
-        }
-        case TokenType::LESS_THAN: {
-            // Consume LESS_THAN
-            consume(TokenType::LESS_THAN, "[ERROR]: Expected LESS_THAN operation");
-
-            if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
-                const int int_a = GetIntOrThrow(l_value);
-                const int int_b = GetIntOrThrow(r_value);
-
-                result = int_b < int_a;
-            }
-            else {
-                throw std::runtime_error("[ERROR]: Mismatched types for < operation");
-            } break;
-        };
-        case TokenType::GREATER_THAN: {
-            // Consume GREATER_THAN
-            consume(TokenType::GREATER_THAN, "[ERROR]: Expected GREATER_THAN operation");
-
-            if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
-                const int int_a = GetIntOrThrow(l_value);
-                const int int_b = GetIntOrThrow(r_value);
-
-                result = int_b > int_a;
-            }
-            else {
-                throw std::runtime_error("[ERROR]: Mismatched types for > operation");
-            } break;
-        }
-        case TokenType::LESS_THAN_EQUALS: {
-            // Consume LESS_THAN_EQUALS
-            consume(TokenType::LESS_THAN_EQUALS, "[ERROR]: Expected LESS_THAN_EQUALS operation");
-
-            if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
-                const int int_a = GetIntOrThrow(l_value);
-                const int int_b = GetIntOrThrow(r_value);
-
-                result = int_b <= int_a;
-            }
-            else {
-                throw std::runtime_error("[ERROR]: Mismatched types for <= operation");
-            } break;
-        }
-        case TokenType::GREATER_THAN_EQUALS: {
-            // Consume GREATER_THAN_EQUALS
-            consume(TokenType::GREATER_THAN_EQUALS, "[ERROR]: Expected GREATER_THAN_EQUALS operation");
-
-            if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
-                const int int_a = GetIntOrThrow(l_value);
-                const int int_b = GetIntOrThrow(r_value);
-
-                result = int_b >= int_a;
-            }
-            else {
-                throw std::runtime_error("[ERROR]: Mismatched types for >= operation");
-            } break;
+            result = (l_value == r_value);
+            break;
         }
         case TokenType::NOT_EQUALS: {
-            // Consume NOT_EQUALS
-            consume(TokenType::NOT_EQUALS, "[ERROR]: Expected NOT_EQUALS operation");
-
-            if (isOfType<int>(l_value) && isOfType<int>(r_value)) {
-                const int int_a = GetIntOrThrow(l_value);
-                const int int_b = GetIntOrThrow(r_value);
-
-                result = int_b != int_a;
-            }
-            else {
-                throw std::runtime_error("[ERROR]: Mismatched types for != operation");
-            } break;
+            result = !(l_value == r_value);
+            break;
+        }
+        case TokenType::LESS_THAN: {
+            result = toDouble(l_value) < toDouble(r_value);
+            break;
+        }
+        case TokenType::LESS_THAN_EQUALS: {
+            result = toDouble(l_value) <= toDouble(r_value);
+            break;
+        }
+        case TokenType::GREATER_THAN: {
+            result = toDouble(l_value) > toDouble(r_value);
+            break;
+        }
+        case TokenType::GREATER_THAN_EQUALS: {
+            result = toDouble(l_value) >= toDouble(r_value);
+            break;
         }
         default: {
-            //
-        };
+            throw std::runtime_error("Unknown logical operator");
+        }
     }
 
-    m_stack.push(result);
+    // Push bool as int (1 or 0)
+    m_stack.push(result ? 1 : 0);
 }
 
 /*
@@ -871,11 +836,24 @@ bool Interpreter::executeBlock(const std::vector<Token> &block) {
     return false;
 }
 
-bool Interpreter::isTruly(const StackValue &value) {
-    if (std::holds_alternative<int>(value)) return std::get<int>(value) != 0;
-    if (std::holds_alternative<double>(value)) return std::get<double>(value) != 0.0;
-    if (std::holds_alternative<std::string>(value)) return !std::get<std::string>(value).empty();
-    return false;
+bool Interpreter::isTruly(const StackValue &v) {
+    return std::visit([]<typename T0>(T0&& value) -> bool {
+        using T = std::decay_t<T0>;
+
+        if constexpr (std::is_same_v<T, int>) {
+            return value != 0;
+        }
+
+        if constexpr (std::is_same_v<T, double>) {
+            return value != 0.0;
+        }
+
+         if constexpr (std::is_same_v<T, std::string>) {
+             return !value.empty();
+         }
+
+        return false;
+    }, v);
 }
 
 std::vector<Token> Interpreter::collectUntil(const TokenType endType) {
@@ -950,15 +928,32 @@ std::pair<std::vector<Token>, std::vector<Token>> Interpreter::collectIfElseEndi
  * @throws std::runtime_error if the stack is empty.
  */
 void Interpreter::executeZeroCheck() {
+    // Consume the ZERO_CHECK token itself
+    consume(TokenType::ZERO_CHECK, "[ERROR]: Expected ?");
+
     if (m_stack.empty()) {
-        throw std::runtime_error("[ERROR]: Stack underflow for zero check");
+        throw std::runtime_error("[ERROR]: Stack underflow for zero-check");
     }
 
-    const StackValue value = m_stack.pop();
-    const int int_a = GetIntOrThrow(value);
-    m_stack.push(int_a == 0);
+    StackValue v = m_stack.pop();
 
-    consume(TokenType::ZERO_CHECK, "Expected ?");
+    const bool isZero = std::visit([]<typename T0>(T0&& value) -> bool {
+        using T = std::decay_t<T0>;
+
+        if constexpr (std::is_same_v<T, int>) {
+            return value == 0;
+        }
+
+        if constexpr (std::is_same_v<T, double>) {
+            return value == 0.0;
+        }
+
+        if constexpr (std::is_same_v<T, std::string>) {
+            return value.empty();
+        }
+    }, v);
+
+    m_stack.push(isZero ? 1 : 0);
 }
 
 /**
