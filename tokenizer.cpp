@@ -32,14 +32,17 @@ std::vector<Token> tokenizer::tokenize() {
         {"while", TokenType::WHILE},
         {"do", TokenType::DO},
         {"end", TokenType::END},
-        {"trace", TokenType::TRACE}
+        {"trace", TokenType::TRACE},
+        {"endif", TokenType::ENDIF},
+        {"continue", TokenType::CONTINUE}
     };
 
     while (peek().has_value()) {
         switch (const char c = consume()) {
             case ' ':
             case '\n':
-                break; // Skip whitespace
+            case '\r':
+                break;
             case ';':
                 while (peek().has_value() && peek().value() != '\n') consume();
                 break; // Skip comments

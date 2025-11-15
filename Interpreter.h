@@ -54,6 +54,12 @@ private:
      */
     Token consume();
 
+    bool executeBlock(const std::vector<Token>& block);
+
+    static bool isTruly(const StackValue& value);
+
+    std::vector<Token> collectUntil(TokenType endType);
+    std::pair<std::vector<Token>, std::vector<Token>> collectIfElseEndif();
 
     /**
      * Consumes the next token of the specified type from the token stream.

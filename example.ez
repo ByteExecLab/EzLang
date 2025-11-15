@@ -19,7 +19,7 @@
 ; over print
 ; dup print
 
-; 5 dup 2 > while do dup trace drop 1 - dup end
+; 5 while dup 0 > do dup print 1 - dup end
 
 ; 10 10 = if "equal" print else "not equal" print end
 ; 1 ? if "zero" print else "not zero" print end
@@ -36,4 +36,5 @@
 ; Type sensitive
 ; variable !
 
-2.5 print
+; Supported Types
+; INT | String | Float
