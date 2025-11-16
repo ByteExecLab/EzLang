@@ -29,7 +29,7 @@ public:
      * interpreted. The constructor takes ownership of this vector.
      * @param stack
      */
-    explicit Interpreter(std::vector<Token> tokens, Stack stack);
+    explicit Interpreter(std::vector<Token> tokens, Stack stack, std::string source);
 
 
     /**
@@ -65,7 +65,7 @@ private:
     static bool isTruly(const StackValue& value);
 
     std::vector<Token> collectUntil(TokenType endType);
-    std::pair<std::vector<Token>, std::vector<Token>> collectIfElseEndif();
+    std::pair<std::vector<Token>, std::vector<Token>> collectIfElseEndif(size_t ifIndex);
     std::vector<Token> collectBlockUntilEnd();
 
     /**
@@ -360,6 +360,8 @@ private:
 
     ControlSignal executeSingleToken();
 
+    void printRuntimeErrorContext(size_t line , size_t column) const;
+
     /**
      * Retrieves the current token being processed by the interpreter.
      *
@@ -372,6 +374,9 @@ private:
     Token getCurrentToken() const;
 
 private:
+
+    std::string m_source;
+
     ControlSignal m_controlSignal = ControlSignal::None;
     /**
      * A mapping of variable names to their corresponding integer values.
@@ -433,6 +438,8 @@ private:
      * to 0 by default, reflecting the starting position.
      */
     size_t m_pos = 0;
+
+    size_t m_errorPos = static_cast<size_t>(-1);
 };
 
 #endif //LEXER_H

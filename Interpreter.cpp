@@ -6,8 +6,8 @@
 #include <utility>
 #include <variant>
 
-Interpreter::Interpreter(std::vector<Token> tokens, Stack stack)
-    : m_stack(std::move(stack)), m_tokens(std::move(tokens)), m_memory(1024) {
+Interpreter::Interpreter(std::vector<Token> tokens, Stack stack, std::string source)
+    : m_stack(std::move(stack)), m_tokens(std::move(tokens)), m_memory(1024), m_source(std::move(source)) {
 
     executionMap = {
         // Stack operations
@@ -186,6 +186,32 @@ double Interpreter::toDouble(const StackValue &v) {
     }, v);
 }
 
+void Interpreter::printRuntimeErrorContext(size_t line , size_t column) const {
+    size_t idx = 0;
+    size_t currentLine = 1;
+
+    // Find start of the given line
+    while (currentLine < line && idx < m_source.size()) {
+        if (m_source[idx] == '\n') {
+            currentLine++;
+        }
+        idx++;
+    }
+
+    size_t line_start = idx;
+    while (idx < m_source.size() && m_source[idx] != '\n') {
+        idx++;
+    }
+    size_t line_end = idx;
+
+    std::string lineStr = m_source.substr(line_start, line_end - line_start);
+    std::cerr << "    " << lineStr << "\n";
+    std::cerr << "    ";
+    for (size_t i = 1; i < column; ++i) std::cerr << " ";
+    std::cerr << "^\n";
+}
+
+
 /**
  * Retrieves the string value from a variant or throws an exception if the variant
  * does not hold a string.
@@ -314,7 +340,7 @@ void Interpreter::executePush(const StackValue &value) {
  * an error with the provided message, halting execution.
  */
 void Interpreter::executeStrLiteral() {
-    const auto [type, value] =
+    const auto [type, value, line, col] =
         consume(TokenType::STR_LITERAL, "[ERROR]: Expected string literal");
     m_stack.push(value);
 }
@@ -333,7 +359,7 @@ void Interpreter::executeStrLiteral() {
  * the stack where the value is stored after processing.
  */
 void Interpreter::executeIntLiteral() {
-    const auto [type, value] = consume(TokenType::INT_LITERAL, "[ERROR]: Expected integer literal");
+    const auto [type, value, line, col] = consume(TokenType::INT_LITERAL, "[ERROR]: Expected integer literal");
     m_stack.push(value);
 }
 
@@ -712,6 +738,8 @@ void Interpreter::executeLogical(const TokenType op) {
  * a new Interpreter to execute the appropriate branch.
  */
 void Interpreter::executeIf() {
+    const size_t ifIndex = m_pos; // index of IF
+
     consume(TokenType::IF, "[ERROR]: Expected IF operation");
 
     if (m_stack.empty()) {
@@ -723,7 +751,7 @@ void Interpreter::executeIf() {
     const bool conditionIsTrue = isTruly(conditionResult);
 
     // Collect tokens
-    auto [ifBranch, elseBranch] = collectIfElseEndif();
+    auto [ifBranch, elseBranch] = collectIfElseEndif(ifIndex);
 
     ControlSignal signal = executeBlock(conditionIsTrue ? ifBranch : elseBranch);
 
@@ -992,7 +1020,7 @@ std::vector<Token> Interpreter::collectUntil(const TokenType endType) {
     return out;
 }
 
-std::pair<std::vector<Token>, std::vector<Token>> Interpreter::collectIfElseEndif() {
+std::pair<std::vector<Token>, std::vector<Token>> Interpreter::collectIfElseEndif(size_t ifIndex) {
     std::vector<Token> ifBranch;
     std::vector<Token> elseBranch;
 
@@ -1014,6 +1042,7 @@ std::pair<std::vector<Token>, std::vector<Token>> Interpreter::collectIfElseEndi
                 if (ifDepth == 1) {
                     // ELSE for the current IF
                     if (sawElse) {
+                        m_errorPos = m_pos;
                         throw std::runtime_error("[ERROR]: Multiple ELSE clauses in IF block");
                     }
                     sawElse = true;
@@ -1043,6 +1072,12 @@ std::pair<std::vector<Token>, std::vector<Token>> Interpreter::collectIfElseEndi
                 break;
             }
         }
+    }
+
+    if (ifIndex < m_tokens.size()) {
+        m_errorPos = ifIndex;
+    } else {
+        m_errorPos = static_cast<size_t>(-1); // Unknown, fallback
     }
 
     // If we reach this point, we ran out of tokens without closing the IF
@@ -1114,7 +1149,7 @@ ControlSignal Interpreter::executeSingleToken() {
         return ControlSignal::None;
     }
 
-    const auto& [type, value] = m_tokens[m_pos];
+    const auto& [type, value, line, col] = m_tokens[m_pos];
     m_controlSignal = ControlSignal::None;
 
     // Handle literals first
@@ -1171,7 +1206,6 @@ ControlSignal Interpreter::executeSingleToken() {
  */
 void Interpreter::execute() {
     while (m_pos < m_tokens.size()) {
-        const auto&[type, value] = m_tokens[m_pos];
         try {
            ControlSignal signal = executeSingleToken();
 
@@ -1183,26 +1217,45 @@ void Interpreter::execute() {
             }
         }
         catch (const std::runtime_error& e) {
-            std::cerr << "\n[ERROR]: Runtime error encountered!" << std::endl;
-            std::cerr << "Message      : " << e.what() << std::endl;
-            std::cerr << "Current Pos  : " << m_pos << " / " << m_tokens.size() << std::endl;
+            // Decide which position to report
+            size_t reportPos = m_pos;
 
-            if (m_pos < m_tokens.size()) {
-                const Token& currentToken = m_tokens[m_pos];
-                std::cerr << "Token Type   : " << tokenTypeToString(currentToken.type) << std::endl;
+            if (m_errorPos != static_cast<size_t>(-1) &&
+                m_errorPos < m_tokens.size()) {
+                reportPos = m_errorPos;
+                }
 
-                // Show token value depending on variant type
-                std::visit([](auto&& arg) {
-                    std::cerr << "Token Value  : " << arg << std::endl;
-                }, currentToken.value);
+            std::cerr << "[ERROR]: Runtime error encountered!\n";
+            std::cerr << "Message      : " << e.what() << "\n";
+            std::cerr << "Current Pos  : " << reportPos << " / " << m_tokens.size() << "\n";
+
+            if (reportPos < m_tokens.size()) {
+                const Token& tok = m_tokens[reportPos];
+
+                std::cerr << "Line         : " << tok.line << "\n";
+                std::cerr << "Column       : " << tok.column << "\n";
+                std::cerr << "Token Type   : " << tokenTypeToString(tok.type) << "\n";
+                std::cerr << "Token Value  : ";
+                if (std::holds_alternative<int>(tok.value)) {
+                    std::cerr << std::get<int>(tok.value) << "\n";
+                } else if (std::holds_alternative<double>(tok.value)) {
+                    std::cerr << std::get<double>(tok.value) << "\n";
+                } else if (std::holds_alternative<std::string>(tok.value)) {
+                    std::cerr << std::get<std::string>(tok.value) << "\n";
+                } else {
+                    std::cerr << "<none>\n";
+                }
+
+                printRuntimeErrorContext(tok.line, tok.column);
             } else {
-                std::cerr << "Token        : <Position beyond token list>" << std::endl;
+                std::cerr << "Token        : <Position beyond token list>\n";
             }
 
-            std::cerr << "Suggestion   : Check the token and surrounding code near position " << m_pos << std::endl;
-            std::cerr << "Execution halted.\n" << std::endl;
+            // Reset error pos so the next error isn’t polluted
+            m_errorPos = static_cast<size_t>(-1);
 
-            exit(EXIT_FAILURE);
+            std::cerr << "Execution halted.\n";
+            std::exit(EXIT_FAILURE);
         }
     }
 }

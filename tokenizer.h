@@ -41,6 +41,9 @@ struct Token {
      */
     std::variant<int, double, std::string> value;
 
+    size_t line = 0;
+    size_t column = 0;
+
     explicit Token(const TokenType t) : type(t), value(0) {} /**
      * Constructs a Token object with the specified token type and integer value.
      *
@@ -79,6 +82,21 @@ struct Token {
      * @param v The value associated with the token, as a std::variant<int, double, std::string>.
      */
     Token(const TokenType t, std::variant<int, double, std::string> v) : type(t), value(std::move(v)) {}
+
+    Token(TokenType t, int v, size_t line_, size_t col_)
+        : type(t), value(v), line(line_), column(col_) {}
+
+    Token(TokenType t, double v, size_t line_, size_t col_)
+        : type(t), value(v), line(line_), column(col_) {}
+
+    Token(TokenType t, const std::string& v, size_t line_, size_t col_)
+        : type(t), value(v), line(line_), column(col_) {}
+
+    Token(TokenType t, size_t line_, size_t col_)
+        : type(t), value(0), line(line_), column(col_) {}
+
+    Token(TokenType t, std::variant<int, double, std::string> v, size_t line_, size_t col_)
+        : type(t), value(std::move(v)), line(line_), column(col_) {}
 };
 
 class tokenizer {

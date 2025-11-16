@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
     auto tokens = tokenizer.tokenize();
 
     auto stack = Stack();
-    Interpreter(tokens, stack).execute();
+    Interpreter(tokens, stack, source).execute();
 
     return EXIT_SUCCESS;
 }
