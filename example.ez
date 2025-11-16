@@ -1,16 +1,5 @@
-word square
+word square 1
     dup *
 end
 
-word add
-    dup +
-end
-
-word greet
-    " world" print print
-end
-
-"hello"
-greet
-
-; 10 add print ; 20
+square print   ; 25

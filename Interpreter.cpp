@@ -906,6 +906,22 @@ void Interpreter::executeWordDefinition() {
     // Consume the name
     consume(TokenType::IDENTIFIER, "[ERROR]: Expected IDENTIFIER after 'word' definition");
 
+    int arity = 0;
+    if (m_pos < m_tokens.size() && m_tokens[m_pos].type == TokenType::INT_LITERAL) {
+        const Token arTok = m_tokens[m_pos];
+
+        if (!std::holds_alternative<int>(arTok.value)) {
+            throw std::runtime_error("[ERROR]: Word arity must be an integer literal");
+        }
+
+        arity = std::get<int>(arTok.value);
+        if (arity < 0) {
+            throw std::runtime_error("[ERROR]: Word arity cannot be negative");
+        }
+
+        consume(TokenType::INT_LITERAL, "[ERROR]: Expected integer literal for word arity");
+    }
+
     // Collect body tokens until matching END
     std::vector<Token> body;
     while (m_pos < m_tokens.size() && m_tokens[m_pos].type != TokenType::END) {
@@ -921,7 +937,11 @@ void Interpreter::executeWordDefinition() {
     consume(TokenType::END, "[ERROR]: Expected 'end' to close word definition");
 
     // Store/overwrite word definition
-    m_words[name] = std::move(body);
+    WordDef def;
+    def.body = std::move(body);
+    def.arity = arity;
+
+    m_words[name] = std::move(def);
 }
 
 void Interpreter::executeIdentifier() {
@@ -954,16 +974,25 @@ void Interpreter::executeIdentifier() {
 
     // User defined word
     if (auto it = m_words.find(name); it != m_words.end()) {
-        // We do NOT consume the IDENTIFIER here before executing.
-        // Let executeBlock operate on the word body only.
-        ++m_pos;
+       WordDef& def = it->second;
 
-        ControlSignal sig = executeBlock(it->second);
-        if (sig != ControlSignal::None) {
-            // propagate break/continue up if they appear in word body
-            m_controlSignal = sig;
+        // Arity check
+        if (def.arity > 0 && static_cast<int>(m_stack.size()) < def.arity) {
+            throw std::runtime_error(
+                "[ERROR]: Word '" + name + "' expects " + std::to_string(def.arity) +
+                " argument(s) on the stack, but only " + std::to_string(m_stack.size()) + " present"
+            );
         }
 
+        // Consume the IDENTIFIER itself
+        ++m_pos;
+
+        // Execute word body
+        ControlSignal sig = executeBlock(def.body);
+        if (sig != ControlSignal::None) {
+            // propagate break/continue up if used inside the word
+            m_controlSignal = sig;
+        }
         return;
     }
 

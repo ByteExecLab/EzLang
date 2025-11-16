@@ -16,6 +16,11 @@ enum class ControlSignal {
     Break,
 };
 
+struct WordDef {
+    std::vector<Token> body;
+    int arity = 0; // Number of stack arguments required
+};
+
 class Interpreter {
 public:
     /**
@@ -425,7 +430,7 @@ private:
     Memory m_memory;
 
     // User defined words: name -> token body
-    std::unordered_map<std::string, std::vector<Token>> m_words;
+    std::unordered_map<std::string, WordDef> m_words;
 
     /**
      * Tracks the next available memory address for allocation.
