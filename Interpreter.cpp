@@ -612,8 +612,8 @@ void Interpreter::executeLogical(const TokenType op) {
         throw std::runtime_error("[ERROR]: Stack underflow for logical operation");
     }
 
-    StackValue l_value = m_stack.pop();
-    StackValue r_value = m_stack.pop();
+    StackValue r_value = m_stack.pop(); //top
+    StackValue l_value = m_stack.pop(); // below top
 
     // Helper lambda for numeric comparison
     auto toDouble = [&](const StackValue& v) -> double {
@@ -757,39 +757,24 @@ void Interpreter::executeWhile() {
     const std::vector<Token> conditionTokens = collectUntil(TokenType::DO);
     consume(TokenType::DO, "[ERROR]: Expected DO after WHILE condition");
 
-    const std::vector<Token> bodyTokens = collectUntil(TokenType::END);
-    consume(TokenType::END, "[ERROR]: Expected END after WHILE block");
+    const std::vector<Token> bodyTokens = collectBlockUntilEnd();
+    // consume(TokenType::END, "[ERROR]: Expected END after WHILE block");
 
     while (true) {
-        // Save interpreter state
-        const auto prevTokens = m_tokens;
-        const auto prevPos = m_pos;
-
-        // Set up condition tokens
-        m_tokens = conditionTokens;
-        m_pos = 0;
-
+      // Evaluate condition
         executeBlock(conditionTokens);
 
         if (m_stack.empty()) {
             throw std::runtime_error("[ERROR]: WHILE condition stack underflow");
         }
 
-        if (!isTruly(m_stack.pop())) {
-            break;
+        const StackValue cond = m_stack.pop();
+        if (!isTruly(cond)) {
+            break; // exit loop
         }
 
-        // Set up body tokens
-        m_tokens = bodyTokens;
-        m_pos = 0;
-
-        if (executeBlock(bodyTokens)) {
-            // continue encountered — just iterate again
-        }
-
-        // Restore original tokens
-        m_tokens = prevTokens;
-        m_pos = prevPos;
+        // Execute body
+        executeBlock(bodyTokens);
     }
 }
 
@@ -924,20 +909,12 @@ bool Interpreter::executeBlock(const std::vector<Token> &block) {
     m_tokens = block;
     m_pos = 0;
 
-    while (m_pos < m_tokens.size()) {
-        if (const Token& token = m_tokens[m_pos]; token.type == TokenType::CONTINUE) {
-            ++m_pos;
-            m_tokens = oldTokens;
-            m_pos = oldPos;
-            return true;  // signal continue
-        }
-
-        execute();
-    }
+    execute(); // Runs until m_pos >= m_tokens.size()
 
     m_tokens = oldTokens;
     m_pos = oldPos;
-    return false;
+
+    return false; // no 'continue' yet
 }
 
 bool Interpreter::isTruly(const StackValue &v) {
@@ -961,25 +938,17 @@ bool Interpreter::isTruly(const StackValue &v) {
 }
 
 std::vector<Token> Interpreter::collectUntil(const TokenType endType) {
-    std::vector<Token> collected;
+    std::vector<Token> out;
 
-    while (m_pos < m_tokens.size()) {
-        const Token& token = m_tokens[m_pos];
-
-        if (token.type == endType) {
-            // Do not consume end token, leave for caller to handle
-            break;
-        }
-
-        collected.push_back(token);
-        ++m_pos;
+    while (m_pos < m_tokens.size() && m_tokens[m_pos].type != endType) {
+        out.push_back(consume());
     }
 
     if (m_pos >= m_tokens.size()) {
         throw std::runtime_error("[ERROR]: Unexpected end of input. Expected token: " + tokenTypeToString(endType));
     }
 
-    return collected;
+    return out;
 }
 
 std::pair<std::vector<Token>, std::vector<Token>> Interpreter::collectIfElseEndif() {
@@ -993,20 +962,20 @@ std::pair<std::vector<Token>, std::vector<Token>> Interpreter::collectIfElseEndi
         const Token& token = m_tokens[m_pos];
 
         if (token.type == TokenType::IF) {
-            depth++;
-            (inElseBody ? elseBranch : ifBranch).push_back(consume());
-        }
-        else if (token.type == TokenType::ENDIF) {
-            depth--;
-            consume(); // Consume ENDIF
-
-            if (depth == 0) { break; }
-
+            ++depth;
             (inElseBody ? elseBranch : ifBranch).push_back(consume());
         }
         else if (token.type == TokenType::ELSE && depth == 1) {
             inElseBody = true;
             consume(); // Consume ELSE
+        }
+        else if (token.type == TokenType::ENDIF) {
+            --depth;
+            consume(); // Consume ENDIF
+
+            if (depth == 0) { break; }
+
+            (inElseBody ? elseBranch : ifBranch).push_back(token);
         }
         else {
             (inElseBody ? elseBranch : ifBranch).push_back(consume());
@@ -1014,13 +983,47 @@ std::pair<std::vector<Token>, std::vector<Token>> Interpreter::collectIfElseEndi
     }
 
     if (depth != 0) {
-        throw std::runtime_error("Expected ENDIF");
+        throw std::runtime_error("Expected IF/ENDIF");
     }
 
     return { ifBranch, elseBranch };
 }
 
+std::vector<Token> Interpreter::collectBlockUntilEnd() {
+    std::vector<Token> block;
+    int depth = 1;
 
+    while (m_pos < m_tokens.size()) {
+        const Token current  = m_tokens[m_pos];
+
+        if (current.type == TokenType::WHILE || current.type == TokenType::IF) {
+            // Entering nested block
+            ++depth;
+            block.push_back(consume());
+        }
+        else if (current.type == TokenType::END || current.type == TokenType::ENDIF) {
+            --depth;
+            consume(); // Eat this END
+
+            if (depth == 0) {
+                // This END closes the current WHILE/IF block
+                break;
+            }
+
+            // This END belonged to an innter block, keep it
+            block.push_back(current);
+        }
+        else {
+            block.push_back(consume());
+        }
+    }
+
+    if (depth != 0) {
+        throw std::runtime_error("[ERROR]: Unbalanced block: missing END");
+    }
+
+    return block;
+}
 
 
 /**

@@ -1,16 +1,17 @@
 100 while dup 0 > do
-    dup 15 swap % 0 = if
+    dup 15 % 0 = if
         "FizzBuzz" print
+    else
+        dup 3 % 0 = if
+            "Fizz" print
+        else
+            dup 5 % 0 = if
+                "Buzz" print
+            else
+                dup print
+            endif
+        endif
     endif
 
-    dup 3 swap % 0 = if
-        "Fizz" print
-    endif
-
-    dup 5 swap % 0 = if
-        "Buzz" print
-    endif
-
-    dup print
     1 -
 end

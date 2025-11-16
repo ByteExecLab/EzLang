@@ -60,6 +60,7 @@ private:
 
     std::vector<Token> collectUntil(TokenType endType);
     std::pair<std::vector<Token>, std::vector<Token>> collectIfElseEndif();
+    std::vector<Token> collectBlockUntilEnd();
 
     /**
      * Consumes the next token of the specified type from the token stream.
