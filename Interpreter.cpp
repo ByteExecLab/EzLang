@@ -996,38 +996,57 @@ std::pair<std::vector<Token>, std::vector<Token>> Interpreter::collectIfElseEndi
     std::vector<Token> ifBranch;
     std::vector<Token> elseBranch;
 
-    bool inElseBody = false;
-    int depth = 1;
+    bool inElse = false;
+    bool sawElse = false;
+    int ifDepth = 1; // We are already inside an IF
 
     while (m_pos < m_tokens.size()) {
-        const Token& token = m_tokens[m_pos];
+        const Token& tok = m_tokens[m_pos];
 
-        if (token.type == TokenType::IF) {
-            ++depth;
-            (inElseBody ? elseBranch : ifBranch).push_back(consume());
-        }
-        else if (token.type == TokenType::ELSE && depth == 1) {
-            inElseBody = true;
-            consume(); // Consume ELSE
-        }
-        else if (token.type == TokenType::ENDIF) {
-            --depth;
-            consume(); // Consume ENDIF
-
-            if (depth == 0) { break; }
-
-            (inElseBody ? elseBranch : ifBranch).push_back(token);
-        }
-        else {
-            (inElseBody ? elseBranch : ifBranch).push_back(consume());
+        switch (tok.type) {
+            case TokenType::IF: {
+                // Nested IF - increase depth, and store token in current branch
+                ++ifDepth;
+                (inElse ? elseBranch : ifBranch).push_back(consume());
+                break;
+            }
+            case TokenType::ELSE: {
+                if (ifDepth == 1) {
+                    // ELSE for the current IF
+                    if (sawElse) {
+                        throw std::runtime_error("[ERROR]: Multiple ELSE clauses in IF block");
+                    }
+                    sawElse = true;
+                    inElse = true;
+                    consume(TokenType::ELSE, "Expected ELSE after IF clause");
+                    // DO NOT store the ELSE token itself
+                } else {
+                    // ELSE belongs to inner IF, treat as normal token
+                    (inElse ? elseBranch : ifBranch).push_back(consume());
+                }
+                break;
+            }
+            case TokenType::ENDIF: {
+                --ifDepth;
+                if (ifDepth == 0) {
+                    // This ENDIF closes the outer IF we are parsing
+                    consume(TokenType::ENDIF, "[ERROR]: Expected ENDIF for IF block");
+                    return {ifBranch, elseBranch};
+                } else {
+                    // ENDIF for inner IF, just store it
+                    (inElse ? elseBranch : ifBranch).push_back(consume());
+                }
+                break;
+            }
+            default: {
+                (inElse ? elseBranch : ifBranch).push_back(consume());
+                break;
+            }
         }
     }
 
-    if (depth != 0) {
-        throw std::runtime_error("Expected IF/ENDIF");
-    }
-
-    return { ifBranch, elseBranch };
+    // If we reach this point, we ran out of tokens without closing the IF
+    throw std::runtime_error("[ERROR]: Unbalanced IF: missing ENDIF before end of input");
 }
 
 std::vector<Token> Interpreter::collectBlockUntilEnd() {
@@ -1114,6 +1133,14 @@ ControlSignal Interpreter::executeSingleToken() {
     if (type == TokenType::BREAK) {
         consume(TokenType::BREAK, "[ERROR]: Expected BREAK token");
         return ControlSignal::Break;
+    }
+
+    if (type == TokenType::ELSE) {
+        throw std::runtime_error("[ERROR]: 'else' found without matching 'if'");
+    }
+
+    if (type == TokenType::ENDIF) {
+        throw std::runtime_error("[ERROR]: 'endif' found without matching 'if'");
     }
 
     // Normal dispatch via execution

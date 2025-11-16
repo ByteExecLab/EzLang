@@ -1,3 +1,10 @@
-1 if
-    1 if "inner" print endif
+10 10 = if
+    "outer-true" print
+    1 1 = if
+        "inner-true" print
+    else
+        "inner-false" print
+    endif
+else
+    "outer-false" print
 endif
