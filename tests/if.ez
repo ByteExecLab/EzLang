@@ -1,0 +1,2 @@
+1 if "yes" print endif
+0 if "no" print endif
