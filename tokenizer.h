@@ -17,6 +17,8 @@ enum class TokenType: uint8_t {
     ADD, SUB, MUL, DIV, MOD,
     EQUALS,NOT_EQUALS, LESS_THAN, LESS_THAN_EQUALS, GREATER_THAN, GREATER_THAN_EQUALS, ZERO_CHECK,
     TRACE,
+
+    WORD,
 };
 
 /**
@@ -211,6 +213,8 @@ inline std::string tokenTypeToString(const TokenType type) {
 
         // Debug
         {TokenType::TRACE, "TRACE"},
+
+        {TokenType::WORD, "WORD"}
     };
 
     if (const auto it = typeStrings.find(type); it != typeStrings.end()) {

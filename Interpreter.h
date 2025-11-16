@@ -283,6 +283,7 @@ private:
     void executeDefineVariable();
 
     void executeIdentifier();
+    void executeWordDefinition();
 
     /**
      * Executes the operation to load a variable from memory onto the stack.
@@ -422,6 +423,9 @@ private:
      * retrieval of data required for the execution process.
      */
     Memory m_memory;
+
+    // User defined words: name -> token body
+    std::unordered_map<std::string, std::vector<Token>> m_words;
 
     /**
      * Tracks the next available memory address for allocation.

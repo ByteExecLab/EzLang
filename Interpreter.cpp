@@ -71,7 +71,8 @@ Interpreter::Interpreter(std::vector<Token> tokens, Stack stack, std::string sou
 
         // Utils
         {TokenType::PRINT, [this]() { executePrint(); }},
-        {TokenType::TRACE, [this] { executeTrace(); }}
+        {TokenType::TRACE, [this] { executeTrace(); }},
+        {TokenType::WORD, [this]() { executeWordDefinition(); }}
     };
 }
 
@@ -885,7 +886,42 @@ void Interpreter::executeDefineVariable() {
     const StackValue value = m_stack.pop();
     m_memory.write(address, value);
 
-    consume(TokenType::END, "Expected END after variable declaration"); // Consume END
+    consume(TokenType::END, "[ERROR]: Expected END after variable declaration"); // Consume END
+}
+
+void Interpreter::executeWordDefinition() {
+    consume(TokenType::WORD, "[ERROR]: Expected WORD after variable definition");
+
+    // Next token must be the word (identifier)
+    if (m_pos >= m_tokens.size() || m_tokens[m_pos].type != TokenType::IDENTIFIER) {
+        throw std::runtime_error("[ERROR]: Expected IDENTIFIER after word definition");
+    }
+
+    const Token nameTok = m_tokens[m_pos];
+    if (!std::holds_alternative<std::string>(nameTok.value)) {
+        throw std::runtime_error("[ERROR]: Invalid identifier for word name");
+    }
+    const std::string name = std::get<std::string>(nameTok.value);
+
+    // Consume the name
+    consume(TokenType::IDENTIFIER, "[ERROR]: Expected IDENTIFIER after 'word' definition");
+
+    // Collect body tokens until matching END
+    std::vector<Token> body;
+    while (m_pos < m_tokens.size() && m_tokens[m_pos].type != TokenType::END) {
+        body.push_back(m_tokens[m_pos]);
+        ++m_pos;
+    }
+
+    if (m_pos >= m_tokens.size() || m_tokens[m_pos].type != TokenType::END) {
+        throw std::runtime_error("[ERROR]: Unterminated word '" + name + "': expected 'end'");
+    }
+
+    // Consume the END that closes the word definition
+    consume(TokenType::END, "[ERROR]: Expected 'end' to close word definition");
+
+    // Store/overwrite word definition
+    m_words[name] = std::move(body);
 }
 
 void Interpreter::executeIdentifier() {
@@ -897,7 +933,7 @@ void Interpreter::executeIdentifier() {
 
     // Extract the identifier name
     if (!std::holds_alternative<std::string>(identTok.value)) {
-        throw std::runtime_error("[ERROR: Identifier token does not hold string");
+        throw std::runtime_error("[ERROR]: Identifier token does not hold string");
     }
     const std::string name = std::get<std::string>(identTok.value);
 
@@ -913,6 +949,21 @@ void Interpreter::executeIdentifier() {
     // Identifier used as "foo !" -> Store variable
     if (next.has_value() && next->type == TokenType::STORE_VARIABLE) {
         executeStoreVariable();
+        return;
+    }
+
+    // User defined word
+    if (auto it = m_words.find(name); it != m_words.end()) {
+        // We do NOT consume the IDENTIFIER here before executing.
+        // Let executeBlock operate on the word body only.
+        ++m_pos;
+
+        ControlSignal sig = executeBlock(it->second);
+        if (sig != ControlSignal::None) {
+            // propagate break/continue up if they appear in word body
+            m_controlSignal = sig;
+        }
+
         return;
     }
 
