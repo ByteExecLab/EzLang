@@ -34,7 +34,8 @@ std::vector<Token> tokenizer::tokenize() {
         {"end", TokenType::END},
         {"trace", TokenType::TRACE},
         {"endif", TokenType::ENDIF},
-        {"continue", TokenType::CONTINUE}
+        {"continue", TokenType::CONTINUE},
+        {"break", TokenType::BREAK},
     };
 
     while (peek().has_value()) {

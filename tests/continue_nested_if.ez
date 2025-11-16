@@ -1,0 +1,12 @@
+10 while dup 0 > do
+    dup 2 % 0 != if      ; odd numbers
+        dup 3 = if       ; and equal to 3
+            "odd 3" print
+            1 -
+            continue
+        endif
+    endif
+
+    dup print
+    1 -
+end

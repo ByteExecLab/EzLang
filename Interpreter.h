@@ -10,6 +10,12 @@
 #include "Stack.h"
 #include "tokenizer.h"
 
+enum class ControlSignal {
+    None,
+    Continue,
+    Break,
+};
+
 class Interpreter {
 public:
     /**
@@ -54,7 +60,7 @@ private:
      */
     Token consume();
 
-    bool executeBlock(const std::vector<Token>& block);
+    ControlSignal executeBlock(const std::vector<Token>& block);
 
     static bool isTruly(const StackValue& value);
 
@@ -352,6 +358,8 @@ private:
 
     static bool bothInt(const StackValue& a, const StackValue& b);
 
+    ControlSignal executeSingleToken();
+
     /**
      * Retrieves the current token being processed by the interpreter.
      *
@@ -364,6 +372,7 @@ private:
     Token getCurrentToken() const;
 
 private:
+    ControlSignal m_controlSignal = ControlSignal::None;
     /**
      * A mapping of variable names to their corresponding integer values.
      *

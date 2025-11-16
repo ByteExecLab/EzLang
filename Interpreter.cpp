@@ -75,7 +75,7 @@ Interpreter::Interpreter(std::vector<Token> tokens, Stack stack)
         // Control flow
         {TokenType::IF, [this]() { executeIf(); }},
         {TokenType::WHILE, [this] { executeWhile(); }},
-        {TokenType::CONTINUE, [this] { executeContinue(); }},
+        // {TokenType::CONTINUE, [this] { executeContinue(); }},
 
         // Utils
         {TokenType::PRINT, [this]() { executePrint(); }},
@@ -725,7 +725,20 @@ void Interpreter::executeIf() {
     // Collect tokens
     auto [ifBranch, elseBranch] = collectIfElseEndif();
 
-    executeBlock(conditionIsTrue ? ifBranch : elseBranch);
+    ControlSignal signal = executeBlock(conditionIsTrue ? ifBranch : elseBranch);
+
+    if (signal != ControlSignal::None) {
+        m_controlSignal = signal;
+    }
+
+    // If inside a loop, caller (executeBlock for the loop body) will see this.
+    // If at top level, execute() will treat it as error if it bubbles that far.
+    if (signal == ControlSignal::Continue || signal == ControlSignal::Break) {
+        // just propagate it upward: do NOT handle here
+        // You can store in m_controlSignal if you prefer, but returning via executeBlock is cleaner.
+        // So just return; caller’s executeBlock will see it as return value.
+        // (No need to do anything else in this function.)
+    }
 
 }
 
@@ -760,9 +773,23 @@ void Interpreter::executeWhile() {
     const std::vector<Token> bodyTokens = collectBlockUntilEnd();
     // consume(TokenType::END, "[ERROR]: Expected END after WHILE block");
 
+    // Save outer signal so we don't leak inner loop control outwards
+    ControlSignal outerSignal = m_controlSignal;
+    m_controlSignal = ControlSignal::None;
+
     while (true) {
       // Evaluate condition
-        executeBlock(conditionTokens);
+        ControlSignal signal = executeBlock(conditionTokens);
+
+        // If condition execution itself hit break/continue, decide how strict you want to be.
+        // I'd treat that as an error or just ignore continue and treat break as "exit loop".
+        if (signal == ControlSignal::Break) {
+            // break from loop due to condition
+            break;
+        } else if (signal == ControlSignal::Continue) {
+            // 'continue' in condition is weird; treat as "recheck condition"
+            continue;
+        }
 
         if (m_stack.empty()) {
             throw std::runtime_error("[ERROR]: WHILE condition stack underflow");
@@ -774,8 +801,17 @@ void Interpreter::executeWhile() {
         }
 
         // Execute body
-        executeBlock(bodyTokens);
+        ControlSignal bodySignal = executeBlock(bodyTokens);
+        if (bodySignal == ControlSignal::Break) {
+            // Exit loop, skip remaining iterations
+            break;
+        } else if (bodySignal == ControlSignal::Continue) {
+            // Skip rest of body (already done) and immediately re-check condition
+            continue;
+        }
     }
+
+    m_controlSignal = outerSignal;
 }
 
 
@@ -902,19 +938,24 @@ void Interpreter::executeStoreVariable() {
 }
 
 
-bool Interpreter::executeBlock(const std::vector<Token> &block) {
+ControlSignal Interpreter::executeBlock(const std::vector<Token> &block) {
     const auto oldTokens = m_tokens;
     const auto oldPos = m_pos;
 
     m_tokens = block;
     m_pos = 0;
 
-    execute(); // Runs until m_pos >= m_tokens.size()
+    ControlSignal signal = ControlSignal::None;
+
+    while (m_pos < m_tokens.size() && signal == ControlSignal::None) {
+        signal = executeSingleToken();
+        // If a nested IF/WHILE triggers continue/break, it will bubble up here
+    }
 
     m_tokens = oldTokens;
     m_pos = oldPos;
 
-    return false; // no 'continue' yet
+    return signal;
 }
 
 bool Interpreter::isTruly(const StackValue &v) {
@@ -1049,6 +1090,42 @@ void Interpreter::executeZeroCheck() {
     m_stack.push(zeroLike ? 1 : 0);
 }
 
+ControlSignal Interpreter::executeSingleToken() {
+    if (m_pos >= m_tokens.size()) {
+        return ControlSignal::None;
+    }
+
+    const auto& [type, value] = m_tokens[m_pos];
+    m_controlSignal = ControlSignal::None;
+
+    // Handle literals first
+    if (type == TokenType::INT_LITERAL || type == TokenType::STR_LITERAL) {
+        executePush(value);
+        consume();
+        return ControlSignal::None;
+    }
+
+    // Handle control signals directly
+    if (type == TokenType::CONTINUE) {
+        consume(TokenType::CONTINUE, "[ERROR]: Expected CONTINUE");
+        return ControlSignal::Continue;
+    }
+
+    if (type == TokenType::BREAK) {
+        consume(TokenType::BREAK, "[ERROR]: Expected BREAK token");
+        return ControlSignal::Break;
+    }
+
+    // Normal dispatch via execution
+    if (auto it = executionMap.find(type); it != executionMap.end()) {
+        it->second();  // may set m_controlSignal from executeIf/executeWhile
+        return ControlSignal::None;
+    }
+
+    throw std::runtime_error("Unknown token type: " + tokenTypeToString(type));
+}
+
+
 /**
  * Executes the sequence of tokens provided to the Interpreter.
  *
@@ -1069,19 +1146,13 @@ void Interpreter::execute() {
     while (m_pos < m_tokens.size()) {
         const auto&[type, value] = m_tokens[m_pos];
         try {
-            if (type == TokenType::END) {
-                throw std::runtime_error("Unexpected END found outside a block");
-            }
+           ControlSignal signal = executeSingleToken();
 
-            if (type == TokenType::INT_LITERAL || type == TokenType::STR_LITERAL || type == TokenType::FLOAT_LITERAL) {
-                executePush(value);
-                consume();
-            }
-            else if (auto it = executionMap.find(type); it != executionMap.end()) {
-                it->second(); // Call the function
-            }
-            else {
-                throw std::runtime_error("Unknown token type: " + tokenTypeToString(type));
+            if (signal == ControlSignal::Continue || signal == ControlSignal::Break) {
+                // At the top level, these are illegal (not inside a loop)
+                throw std::runtime_error(
+                    signal == ControlSignal::Continue ? "[ERROR]: 'continue' used outside of the loop" : "[ERROR]: 'break' used outside of the loop]"
+                );
             }
         }
         catch (const std::runtime_error& e) {
