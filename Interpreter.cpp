@@ -53,15 +53,7 @@ Interpreter::Interpreter(std::vector<Token> tokens, Stack stack, std::string sou
 
         // Variables
         {TokenType::CONST, [this]() { executeDefineVariable(); }},
-        {
-            TokenType::IDENTIFIER, [this] {
-                if (peek(1)->type == TokenType::LOAD_VARIABLE) {
-                    executeLoadVariable();
-                } else if (peek(1)->type == TokenType::STORE_VARIABLE) {
-                    executeStoreVariable();
-                }
-            }
-        },
+        { TokenType::IDENTIFIER, [this]() { executeIdentifier(); }},
 
         // Logical Operators
         {TokenType::EQUALS, [this]() { executeLogical(TokenType::EQUALS); }},
@@ -896,6 +888,40 @@ void Interpreter::executeDefineVariable() {
     consume(TokenType::END, "Expected END after variable declaration"); // Consume END
 }
 
+void Interpreter::executeIdentifier() {
+    if (m_pos >= m_tokens.size()) {
+        throw std::runtime_error("[ERROR]: Internal: executeIdentifier out of range");
+    }
+
+    const Token& identTok = m_tokens[m_pos];
+
+    // Extract the identifier name
+    if (!std::holds_alternative<std::string>(identTok.value)) {
+        throw std::runtime_error("[ERROR: Identifier token does not hold string");
+    }
+    const std::string name = std::get<std::string>(identTok.value);
+
+    // See what's next
+    auto next = peek(1);
+
+    // Identifier used as "foo @" -> Load variable
+    if (next.has_value() && next->type == TokenType::LOAD_VARIABLE) {
+        executeLoadVariable();
+        return;
+    }
+
+    // Identifier used as "foo !" -> Store variable
+    if (next.has_value() && next->type == TokenType::STORE_VARIABLE) {
+        executeStoreVariable();
+        return;
+    }
+
+    // Otherwise: It's an unknown word
+    std::string msg = "[ERROR]: Unknown word: '" + name + "'";
+    throw std::runtime_error(msg);
+}
+
+
 /**
  * Loads a variable value into the stack from memory using its name.
  *
@@ -1206,6 +1232,7 @@ ControlSignal Interpreter::executeSingleToken() {
  */
 void Interpreter::execute() {
     while (m_pos < m_tokens.size()) {
+        const Token& tok = m_tokens[m_pos];
         try {
            ControlSignal signal = executeSingleToken();
 

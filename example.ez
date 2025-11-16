@@ -1,3 +1,1 @@
-10 if
-    "hi" print
-endif
+pritn "hi"

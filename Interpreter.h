@@ -282,6 +282,8 @@ private:
      */
     void executeDefineVariable();
 
+    void executeIdentifier();
+
     /**
      * Executes the operation to load a variable from memory onto the stack.
      *
