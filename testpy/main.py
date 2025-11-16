@@ -8,7 +8,7 @@ RED = "\033[91m"
 YELLOW = "\033[93m"
 RESET = "\033[0m"
 
-exe_file = Path("../ezlang")
+exe_file = Path("../build/ezlang")
 tests_dir = Path("../tests")
 
 results = []
