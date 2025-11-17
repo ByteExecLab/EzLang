@@ -1,5 +1,12 @@
-word square 1
-    dup *
+word firstEvenBelow 1
+    while dup 0 > do
+        dup 2 % 0 = if
+            return
+        endif
+        1 -
+    end
 end
 
-square print   ; 25
+10 firstEvenBelow print
+5 firstEvenBelow print
+1 firstEvenBelow print

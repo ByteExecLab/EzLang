@@ -66,12 +66,14 @@ Interpreter::Interpreter(std::vector<Token> tokens, Stack stack, std::string sou
 
         // Control flow
         {TokenType::IF, [this]() { executeIf(); }},
-        {TokenType::WHILE, [this] { executeWhile(); }},
-        // {TokenType::CONTINUE, [this] { executeContinue(); }},
+        {TokenType::WHILE, [this]() { executeWhile(); }},
+        {TokenType::CONTINUE, [this]() { executeContinue(); }},
+        {TokenType::BREAK, [this]() { executeBreak(); }},
+        {TokenType::RETURN, [this]() { executeReturn(); }},
 
         // Utils
         {TokenType::PRINT, [this]() { executePrint(); }},
-        {TokenType::TRACE, [this] { executeTrace(); }},
+        {TokenType::TRACE, [this]() { executeTrace(); }},
         {TokenType::WORD, [this]() { executeWordDefinition(); }}
     };
 }
@@ -799,40 +801,44 @@ void Interpreter::executeWhile() {
     m_controlSignal = ControlSignal::None;
 
     while (true) {
-      // Evaluate condition
-        ControlSignal signal = executeBlock(conditionTokens);
-
-        // If condition execution itself hit break/continue, decide how strict you want to be.
-        // I'd treat that as an error or just ignore continue and treat break as "exit loop".
-        if (signal == ControlSignal::Break) {
-            // break from loop due to condition
-            break;
-        } else if (signal == ControlSignal::Continue) {
-            // 'continue' in condition is weird; treat as "recheck condition"
-            continue;
+        // Evaluate condition
+        ControlSignal condSig = executeBlock(conditionTokens);
+        if (condSig == ControlSignal::Return) {
+            // RETURN inside condition is weird, but we propagate
+            m_controlSignal = ControlSignal::Return;
+            return;
+        } else if (condSig == ControlSignal::Break || condSig == ControlSignal::Continue) {
+            // Using break/continue in condition is invalid → treat as error
+            throw std::runtime_error("[ERROR]: 'break' or 'continue' used inside WHILE condition");
         }
 
         if (m_stack.empty()) {
             throw std::runtime_error("[ERROR]: WHILE condition stack underflow");
         }
 
-        const StackValue cond = m_stack.pop();
-        if (!isTruly(cond)) {
-            break; // exit loop
+        if (!isTruly(m_stack.pop())) {
+            break; // Exit loop normally
         }
 
         // Execute body
-        ControlSignal bodySignal = executeBlock(bodyTokens);
-        if (bodySignal == ControlSignal::Break) {
-            // Exit loop, skip remaining iterations
-            break;
-        } else if (bodySignal == ControlSignal::Continue) {
-            // Skip rest of body (already done) and immediately re-check condition
+        ControlSignal bodySig = executeBlock(bodyTokens);
+
+        if (bodySig == ControlSignal::Continue) {
+            // Just restart the loop
             continue;
         }
-    }
 
-    m_controlSignal = outerSignal;
+        if (bodySig == ControlSignal::Break) {
+            // Exit loop entirely
+            break;
+        }
+
+        if (bodySig == ControlSignal::Return) {
+            // Propagate RETURN upward, don't consume it here
+            m_controlSignal = ControlSignal::Return;
+            return;
+        }
+    }
 }
 
 
@@ -890,115 +896,80 @@ void Interpreter::executeDefineVariable() {
 }
 
 void Interpreter::executeWordDefinition() {
-    consume(TokenType::WORD, "[ERROR]: Expected WORD after variable definition");
+    consume(TokenType::WORD, "Expected 'word'");
 
-    // Next token must be the word (identifier)
-    if (m_pos >= m_tokens.size() || m_tokens[m_pos].type != TokenType::IDENTIFIER) {
-        throw std::runtime_error("[ERROR]: Expected IDENTIFIER after word definition");
-    }
-
-    const Token nameTok = m_tokens[m_pos];
-    if (!std::holds_alternative<std::string>(nameTok.value)) {
-        throw std::runtime_error("[ERROR]: Invalid identifier for word name");
-    }
+    // name
+    const Token nameTok = consume(TokenType::IDENTIFIER, "Expected word name after 'word'");
     const std::string name = std::get<std::string>(nameTok.value);
 
-    // Consume the name
-    consume(TokenType::IDENTIFIER, "[ERROR]: Expected IDENTIFIER after 'word' definition");
-
+    // optional arity
     int arity = 0;
     if (m_pos < m_tokens.size() && m_tokens[m_pos].type == TokenType::INT_LITERAL) {
-        const Token arTok = m_tokens[m_pos];
-
-        if (!std::holds_alternative<int>(arTok.value)) {
-            throw std::runtime_error("[ERROR]: Word arity must be an integer literal");
-        }
-
-        arity = std::get<int>(arTok.value);
-        if (arity < 0) {
-            throw std::runtime_error("[ERROR]: Word arity cannot be negative");
-        }
-
-        consume(TokenType::INT_LITERAL, "[ERROR]: Expected integer literal for word arity");
+        arity = std::get<int>(m_tokens[m_pos].value);
+        consume(TokenType::INT_LITERAL, "Expected integer arity after word name");
     }
 
-    // Collect body tokens until matching END
-    std::vector<Token> body;
-    while (m_pos < m_tokens.size() && m_tokens[m_pos].type != TokenType::END) {
-        body.push_back(m_tokens[m_pos]);
-        ++m_pos;
-    }
+    // 🔹 This now correctly handles nested while/if/endif/end
+    std::vector<Token> body = collectBlockUntilEnd();
 
-    if (m_pos >= m_tokens.size() || m_tokens[m_pos].type != TokenType::END) {
-        throw std::runtime_error("[ERROR]: Unterminated word '" + name + "': expected 'end'");
-    }
-
-    // Consume the END that closes the word definition
-    consume(TokenType::END, "[ERROR]: Expected 'end' to close word definition");
-
-    // Store/overwrite word definition
     WordDef def;
-    def.body = std::move(body);
+    def.body  = std::move(body);
     def.arity = arity;
 
     m_words[name] = std::move(def);
 }
 
 void Interpreter::executeIdentifier() {
-    if (m_pos >= m_tokens.size()) {
-        throw std::runtime_error("[ERROR]: Internal: executeIdentifier out of range");
-    }
-
     const Token& identTok = m_tokens[m_pos];
-
-    // Extract the identifier name
-    if (!std::holds_alternative<std::string>(identTok.value)) {
-        throw std::runtime_error("[ERROR]: Identifier token does not hold string");
-    }
     const std::string name = std::get<std::string>(identTok.value);
 
-    // See what's next
+    // variable cases...
     auto next = peek(1);
+    if (next && next->type == TokenType::LOAD_VARIABLE) { /* ... */ }
+    if (next && next->type == TokenType::STORE_VARIABLE) { /* ... */ }
 
-    // Identifier used as "foo @" -> Load variable
-    if (next.has_value() && next->type == TokenType::LOAD_VARIABLE) {
-        executeLoadVariable();
-        return;
+    // user-defined word:
+    auto it = m_words.find(name);
+    if (it == m_words.end()) {
+        throw std::runtime_error("[ERROR]: Unknown word '" + name + "'");
     }
 
-    // Identifier used as "foo !" -> Store variable
-    if (next.has_value() && next->type == TokenType::STORE_VARIABLE) {
-        executeStoreVariable();
-        return;
+    WordDef& def = it->second;
+
+    if (def.arity > 0 && static_cast<int>(m_stack.size()) < def.arity) {
+        throw std::runtime_error(
+            "[ERROR]: Word '" + name + "' expects " +
+            std::to_string(def.arity) + " argument(s) on the stack, but only " +
+            std::to_string(m_stack.size()) + " present"
+        );
     }
 
-    // User defined word
-    if (auto it = m_words.find(name); it != m_words.end()) {
-       WordDef& def = it->second;
+    // consume the identifier token
+    ++m_pos;
 
-        // Arity check
-        if (def.arity > 0 && static_cast<int>(m_stack.size()) < def.arity) {
-            throw std::runtime_error(
-                "[ERROR]: Word '" + name + "' expects " + std::to_string(def.arity) +
-                " argument(s) on the stack, but only " + std::to_string(m_stack.size()) + " present"
-            );
-        }
+    ControlSignal sig = executeBlock(def.body);
 
-        // Consume the IDENTIFIER itself
-        ++m_pos;
-
-        // Execute word body
-        ControlSignal sig = executeBlock(def.body);
-        if (sig != ControlSignal::None) {
-            // propagate break/continue up if used inside the word
-            m_controlSignal = sig;
-        }
+    if (sig == ControlSignal::Return) {
+        // swallow return at word boundary
         return;
     }
+    if (sig == ControlSignal::Break || sig == ControlSignal::Continue) {
+        m_controlSignal = sig;
+    }
+}
 
-    // Otherwise: It's an unknown word
-    std::string msg = "[ERROR]: Unknown word: '" + name + "'";
-    throw std::runtime_error(msg);
+void Interpreter::executeBreak() {
+    consume(TokenType::BREAK, "[ERROR]: Expected 'break']");
+    m_controlSignal = ControlSignal::Break;
+}
+
+
+void Interpreter::executeReturn() {
+    consume(TokenType::RETURN, "[ERROR]: Expected 'return'");
+
+    // We *don’t* know here whether we’re in a word or not.
+    // We just signal RETURN and let callers decide if that is legal.
+    m_controlSignal = ControlSignal::Return;
 }
 
 
@@ -1075,21 +1046,29 @@ void Interpreter::executeStoreVariable() {
 ControlSignal Interpreter::executeBlock(const std::vector<Token> &block) {
     const auto oldTokens = m_tokens;
     const auto oldPos = m_pos;
+    const auto oldControlSignal = m_controlSignal;
 
     m_tokens = block;
     m_pos = 0;
+    m_controlSignal = ControlSignal::None;
 
-    ControlSignal signal = ControlSignal::None;
+    ControlSignal result = ControlSignal::None;
 
-    while (m_pos < m_tokens.size() && signal == ControlSignal::None) {
-        signal = executeSingleToken();
-        // If a nested IF/WHILE triggers continue/break, it will bubble up here
+    while (m_pos < m_tokens.size()) {
+        ControlSignal sig = executeSingleToken();
+
+        if (sig != ControlSignal::None) {
+            result = sig;
+            break;
+        }
     }
 
+    // Restore outer interpreter context
     m_tokens = oldTokens;
     m_pos = oldPos;
+    m_controlSignal = oldControlSignal;
 
-    return signal;
+    return result;
 }
 
 bool Interpreter::isTruly(const StackValue &v) {
@@ -1195,35 +1174,40 @@ std::vector<Token> Interpreter::collectBlockUntilEnd() {
     int depth = 1;
 
     while (m_pos < m_tokens.size()) {
-        const Token current  = m_tokens[m_pos];
+        const Token& tok = m_tokens[m_pos];
 
-        if (current.type == TokenType::WHILE || current.type == TokenType::IF) {
-            // Entering nested block
-            ++depth;
-            block.push_back(consume());
-        }
-        else if (current.type == TokenType::END || current.type == TokenType::ENDIF) {
-            --depth;
-            consume(); // Eat this END
-
-            if (depth == 0) {
-                // This END closes the current WHILE/IF block
+        switch (tok.type) {
+            // Any token that starts a nested block
+            case TokenType::WHILE:
+            case TokenType::WORD:
+            case TokenType::IF: {
+                ++depth;
+                block.push_back(consume());
                 break;
             }
+            // Any token that ends a nested block
+            case TokenType::END:
+            case TokenType::ENDIF: {
+                --depth;
 
-            // This END belonged to an innter block, keep it
-            block.push_back(current);
-        }
-        else {
-            block.push_back(consume());
+                if (depth == 0) {
+                    // This END/ENDIF closes the outer block we are collecting
+                    consume(tok.type, "[ERROR]: Expected END/ENDIF to close block");
+                    return block; // Do not include closing token
+                }
+                // It's an inner END/ENDIF, keep it in the body
+                block.push_back(consume());
+                break;
+            }
+            default: {
+                block.push_back(consume());
+                break;
+            }
         }
     }
 
-    if (depth != 0) {
-        throw std::runtime_error("[ERROR]: Unbalanced block: missing END");
-    }
-
-    return block;
+    // If we get here, we ran out of tokens before depth returned to 0
+    throw std::runtime_error("[ERROR]: Unbalanced block: missing END before end of input");
 }
 
 
@@ -1255,39 +1239,29 @@ ControlSignal Interpreter::executeSingleToken() {
         return ControlSignal::None;
     }
 
-    const auto& [type, value, line, col] = m_tokens[m_pos];
-    m_controlSignal = ControlSignal::None;
+    const Token& tok = m_tokens[m_pos];
+    const auto type = tok.type;
 
-    // Handle literals first
-    if (type == TokenType::INT_LITERAL || type == TokenType::STR_LITERAL) {
-        executePush(value);
+    if (type == TokenType::INT_LITERAL ||
+        type == TokenType::FLOAT_LITERAL ||
+        type == TokenType::STR_LITERAL) {
+        executePush(tok.value);
         consume();
         return ControlSignal::None;
     }
 
-    // Handle control signals directly
-    if (type == TokenType::CONTINUE) {
-        consume(TokenType::CONTINUE, "[ERROR]: Expected CONTINUE");
-        return ControlSignal::Continue;
+    if (type == TokenType::IDENTIFIER) {
+        m_controlSignal = ControlSignal::None;
+        executeIdentifier();
+        return m_controlSignal;
     }
 
-    if (type == TokenType::BREAK) {
-        consume(TokenType::BREAK, "[ERROR]: Expected BREAK token");
-        return ControlSignal::Break;
-    }
-
-    if (type == TokenType::ELSE) {
-        throw std::runtime_error("[ERROR]: 'else' found without matching 'if'");
-    }
-
-    if (type == TokenType::ENDIF) {
-        throw std::runtime_error("[ERROR]: 'endif' found without matching 'if'");
-    }
-
-    // Normal dispatch via execution
-    if (auto it = executionMap.find(type); it != executionMap.end()) {
-        it->second();  // may set m_controlSignal from executeIf/executeWhile
-        return ControlSignal::None;
+    // everything else via executionMap
+    auto it = executionMap.find(type);
+    if (it != executionMap.end()) {
+        m_controlSignal = ControlSignal::None;
+        it->second();            // handlers themselves call consume(TokenType::X, ...)
+        return m_controlSignal;
     }
 
     throw std::runtime_error("Unknown token type: " + tokenTypeToString(type));
@@ -1316,11 +1290,14 @@ void Interpreter::execute() {
         try {
            ControlSignal signal = executeSingleToken();
 
-            if (signal == ControlSignal::Continue || signal == ControlSignal::Break) {
-                // At the top level, these are illegal (not inside a loop)
-                throw std::runtime_error(
-                    signal == ControlSignal::Continue ? "[ERROR]: 'continue' used outside of the loop" : "[ERROR]: 'break' used outside of the loop]"
-                );
+            if (signal == ControlSignal::Continue || signal == ControlSignal::Break || signal == ControlSignal::Return) {
+                // At the top level, these are illegal
+                std::string msg;
+                if (signal == ControlSignal::Continue) msg = "[ERROR]: 'continue' used outside of the loop";
+                else if (signal == ControlSignal::Break) msg = "[ERROR]: 'break' used outside of the loop]";
+                else msg = "[ERROR]: 'return' used outside of a word";
+
+                throw std::runtime_error(msg);
             }
         }
         catch (const std::runtime_error& e) {

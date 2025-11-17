@@ -1,0 +1,18 @@
+word classify 1
+    dup 0 < if
+        "negative" print
+        return
+    endif
+
+    dup 0 = if
+        "zero" print
+        return
+    endif
+
+    "positive" print
+end
+
+0 5 - classify    ; "negative"  (0 - 5 = -5)
+0 classify        ; "zero"
+7 classify        ; "positive"
+

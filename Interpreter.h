@@ -54,9 +54,10 @@
  * @see Interpreter::executeBlock()
  */
 enum class ControlSignal {
-    None,
-    Continue,
-    Break,
+    None, ///< Normal execution, no special control flow.
+    Continue, ///< Skip remaining block code and resume next loop iteration.
+    Break, ///< Terminate the current loop immediately.
+    Return, ///< Return from the current user-defined word.
 };
 
 /**
@@ -635,6 +636,9 @@ private:
      *                  and greater than or equal to.
      */
     void executeLogical(TokenType tokenType);
+
+    void executeReturn();
+    void executeBreak();
 
 
     /**

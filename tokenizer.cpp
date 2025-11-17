@@ -36,6 +36,7 @@ std::vector<Token> tokenizer::tokenize() {
         {"endif", TokenType::ENDIF},
         {"continue", TokenType::CONTINUE},
         {"break", TokenType::BREAK},
+        {"return", TokenType::RETURN},
         {"word", TokenType::WORD},
     };
 

@@ -13,7 +13,7 @@ enum class TokenType: uint8_t {
     PRINT, INT_LITERAL, STR_LITERAL, IDENTIFIER, FLOAT_LITERAL,
     CONST, LOAD_VARIABLE, STORE_VARIABLE,
     // Control
-    IF, ELSE, WHILE, DO, FOR, END, ENDIF, CONTINUE, BREAK,
+    IF, ELSE, WHILE, DO, FOR, END, ENDIF, CONTINUE, BREAK, RETURN,
     ADD, SUB, MUL, DIV, MOD,
     EQUALS,NOT_EQUALS, LESS_THAN, LESS_THAN_EQUALS, GREATER_THAN, GREATER_THAN_EQUALS, ZERO_CHECK,
     TRACE,
@@ -196,6 +196,7 @@ inline std::string tokenTypeToString(const TokenType type) {
         {TokenType::DO, "DO"},
         {TokenType::CONTINUE, "continue"},
         {TokenType::BREAK, "break"},
+        {TokenType::RETURN, "return"},
         {TokenType::FOR, "FOR"},
         {TokenType::END, "END"},
         {TokenType::ADD, "ADD"},
