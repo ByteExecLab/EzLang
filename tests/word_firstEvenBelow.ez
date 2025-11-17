@@ -1,0 +1,15 @@
+word firstEvenBelow 1
+    ; Expects: ( n -- e )
+    ; Returns the first even number <= n, or 0 if none > 0.
+    while dup 0 > do
+        dup 2 % 0 = if
+            return
+        endif
+        1 -
+    end
+end
+
+10 firstEvenBelow print
+9 firstEvenBelow print
+5 firstEvenBelow print
+1 firstEvenBelow print

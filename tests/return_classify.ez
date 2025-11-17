@@ -12,7 +12,6 @@ word classify 1
     "positive" print
 end
 
-0 5 - classify    ; "negative"  (0 - 5 = -5)
-0 classify        ; "zero"
-7 classify        ; "positive"
-
+0 5 - classify      ; negative
+0 classify          ; zero
+7 classify          ; positive

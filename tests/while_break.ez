@@ -1,6 +1,6 @@
 10 while dup 0 > do
     dup print
-    dup 5 = if
+    dup 3 = if
         break
     endif
     1 -

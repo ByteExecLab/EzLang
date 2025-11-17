@@ -1,5 +1,0 @@
-word square 1
-    dup *
-end
-
-25 square print   ; 25

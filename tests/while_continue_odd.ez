@@ -1,9 +1,10 @@
 5 while dup 0 > do
-    dup 3 = if
-        "skip 3" print
+    dup 2 % 0 = if
+        ; even -> decrement and skip printing
         1 -
         continue
     endif
+
     dup print
     1 -
 end

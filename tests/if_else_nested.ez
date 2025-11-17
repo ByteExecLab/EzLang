@@ -1,6 +1,5 @@
-10 10 = if
-    "outer-true" print
-    1 1 = if
+1 2 < if
+    3 3 = if
         "inner-true" print
     else
         "inner-false" print

@@ -1,4 +1,4 @@
-3 while dup 0 > do
+5 while dup 0 > do
     dup print
     1 -
 end
