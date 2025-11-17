@@ -31,6 +31,8 @@ int main(int argc, char** argv) {
     tokenizer tokenizer(source);
     auto tokens = tokenizer.tokenize();
 
+    Interpreter::validateBlocks(tokens);
+
     auto stack = Stack();
     Interpreter(tokens, stack, source).execute();
 

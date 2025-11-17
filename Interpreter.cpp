@@ -181,6 +181,110 @@ double Interpreter::toDouble(const StackValue &v) {
     }, v);
 }
 
+void Interpreter::validateBlocks(const std::vector<Token> &tokens) {
+     std::vector<BlockFrame> stack;
+
+    auto errorAt = [](const std::string& msg, const Token& tok) {
+        throw std::runtime_error(
+            msg + " at line " + std::to_string(tok.line) +
+            ", column " + std::to_string(tok.column)
+        );
+    };
+
+    for (size_t i = 0; i < tokens.size(); ++i) {
+        const Token& tok = tokens[i];
+
+        switch (tok.type) {
+
+            // ----- Block openers -----
+            case TokenType::IF:
+                stack.push_back({BlockKind::If, tok, false});
+                break;
+
+            case TokenType::WHILE:
+                stack.push_back({BlockKind::While, tok, false});
+                break;
+
+            // If you have a WORD token for `word` definitions:
+            case TokenType::WORD:
+                stack.push_back({BlockKind::Word, tok, false});
+                break;
+
+            // ----- ELSE -----
+            case TokenType::ELSE: {
+                if (stack.empty() || stack.back().kind != BlockKind::If) {
+                    errorAt("[ERROR]: 'else' without matching 'if'", tok);
+                }
+                if (stack.back().sawElse) {
+                    errorAt("[ERROR]: Multiple 'else' clauses for one 'if'", tok);
+                }
+                stack.back().sawElse = true;
+                break;
+            }
+
+            // ----- ENDIF -----
+            case TokenType::ENDIF: {
+                if (stack.empty() || stack.back().kind != BlockKind::If) {
+                    errorAt("[ERROR]: 'endif' without matching 'if'", tok);
+                }
+                stack.pop_back();
+                break;
+            }
+
+            // ----- DO -----
+            case TokenType::DO: {
+                if (stack.empty() || stack.back().kind != BlockKind::While) {
+                    errorAt("[ERROR]: 'do' without matching 'while'", tok);
+                }
+                // no push/pop; DO is just a separator inside WHILE
+                break;
+            }
+
+            // ----- END -----
+            case TokenType::END: {
+                if (stack.empty()) {
+                    // This could be too strict if you use bare `end` for other things.
+                    // If that’s the case, either:
+                    //   - treat unmatched END as error (strict), or
+                    //   - just ignore it (lenient).
+                    //
+                    // Strict is better long-term, but for now we’ll error:
+                    errorAt("[ERROR]: 'end' without matching block", tok);
+                }
+
+                BlockKind kind = stack.back().kind;
+                if (kind == BlockKind::While || kind == BlockKind::Word) {
+                    stack.pop_back();
+                } else {
+                    errorAt("[ERROR]: 'end' used to close non-loop / non-word block", tok);
+                }
+                break;
+            }
+
+            default:
+                break;
+        }
+    }
+
+    // Unclosed blocks
+    if (!stack.empty()) {
+        const BlockFrame& unclosed = stack.back();
+        std::string kindStr;
+        switch (unclosed.kind) {
+            case BlockKind::If:    kindStr = "if";    break;
+            case BlockKind::While: kindStr = "while"; break;
+            case BlockKind::Word:  kindStr = "word";  break;
+        }
+
+        throw std::runtime_error(
+            "[ERROR]: Unclosed " + kindStr +
+            " starting at line " + std::to_string(unclosed.startToken.line) +
+            ", column " + std::to_string(unclosed.startToken.column)
+        );
+    }
+}
+
+
 void Interpreter::printRuntimeErrorContext(size_t line , size_t column) const {
     size_t idx = 0;
     size_t currentLine = 1;

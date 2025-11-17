@@ -60,6 +60,13 @@ enum class ControlSignal {
     Return, ///< Return from the current user-defined word.
 };
 
+enum class BlockKind { If, While, Word };
+struct BlockFrame {
+    BlockKind kind;
+    Token startToken;
+    bool sawElse = false;  // only used for IF
+};
+
 /**
  * @struct WordDef
  * @brief Represents a user-defined word (function) in the EzLang interpreter.
@@ -130,6 +137,8 @@ public:
      *
      */
     void execute();
+
+    static void validateBlocks(const std::vector<Token>& tokens);
 
     std::map<TokenType, std::function<void()>> executionMap;
 private:
