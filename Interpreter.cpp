@@ -164,21 +164,15 @@ bool Interpreter::bothInt(const StackValue &a, const StackValue &b) {
     return std::holds_alternative<int>(a) && std::holds_alternative<int>(b);
 }
 
-
 double Interpreter::toDouble(const StackValue &v) {
-    return std::visit([]<typename T0>(T0&& x) -> double {
-        using T = std::decay_t<T0>;
+    if (std::holds_alternative<int>(v)) {
+        return static_cast<double>(std::get<int>(v));
+    }
+    if (std::holds_alternative<double>(v)) {
+        return static_cast<double>(std::get<double>(v));
+    }
 
-        if constexpr (std::is_same_v<T, int>) {
-            return static_cast<double>(x);
-        }
-
-        if constexpr (std::is_same_v<T, double>) {
-            return x;
-        }
-
-        throw std::runtime_error("[ERROR]: Expected number");
-    }, v);
+    throw std::runtime_error("[ERROR]: Expected numeric type");
 }
 
 void Interpreter::validateBlocks(const std::vector<Token> &tokens) {
@@ -191,9 +185,7 @@ void Interpreter::validateBlocks(const std::vector<Token> &tokens) {
         );
     };
 
-    for (size_t i = 0; i < tokens.size(); ++i) {
-        const Token& tok = tokens[i];
-
+    for (const auto & tok : tokens) {
         switch (tok.type) {
 
             // ----- Block openers -----
@@ -386,7 +378,7 @@ Token Interpreter::consume(const TokenType tokenType, const std::string &errorMe
  * returns std::nullptr to indicate that there is no token at that
  * position.
  */
-std::optional<Token> Interpreter::peek(size_t offset) {
+std::optional<Token> Interpreter::peek(const size_t offset) {
     if (m_pos + offset >= m_tokens.size()) {
         return std::nullopt;
     }
@@ -711,8 +703,8 @@ void Interpreter::executeBinary(const TokenType tokenType) {
             break;
         }
         default: {
-            throw std::runtime_error("[ERROR]: Unknown binary operation");
-        };
+            throw std::runtime_error("[ERROR]: Unknown binary token");
+        }
     }
 
     m_stack.push(result);
@@ -733,7 +725,7 @@ void Interpreter::executeBinary(const TokenType tokenType) {
  * @throws std::runtime_error if the stack contains fewer th two elements.
  */
 void Interpreter::executeLogical(const TokenType op) {
-    if (m_stack.size() < 2) {
+ if (m_stack.size() < 2) {
         throw std::runtime_error("[ERROR]: Stack underflow for logical operation");
     }
 
@@ -1156,7 +1148,7 @@ ControlSignal Interpreter::executeBlock(const std::vector<Token> &block) {
     m_pos = 0;
     m_controlSignal = ControlSignal::None;
 
-    ControlSignal result = ControlSignal::None;
+    auto result = ControlSignal::None;
 
     while (m_pos < m_tokens.size()) {
         ControlSignal sig = executeSingleToken();
@@ -1176,23 +1168,19 @@ ControlSignal Interpreter::executeBlock(const std::vector<Token> &block) {
 }
 
 bool Interpreter::isTruly(const StackValue &v) {
-    return std::visit([]<typename T0>(T0&& value) -> bool {
-        using T = std::decay_t<T0>;
+    if (std::holds_alternative<int>(v)) {
+        return std::get<int>(v) != 0; // Includes negative
+    }
 
-        if constexpr (std::is_same_v<T, int>) {
-            return value != 0;
-        }
+    if (std::holds_alternative<double>(v)) {
+        return std::get<double>(v) != 0.0; // Includes negative
+    }
 
-        if constexpr (std::is_same_v<T, double>) {
-            return value != 0.0;
-        }
+    if (std::holds_alternative<double>(v)) {
+        return !std::get<std::string>(v).empty();
+    }
 
-         if constexpr (std::is_same_v<T, std::string>) {
-             return !value.empty();
-         }
-
-        return false;
-    }, v);
+    return false;
 }
 
 std::vector<Token> Interpreter::collectUntil(const TokenType endType) {
