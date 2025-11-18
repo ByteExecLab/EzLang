@@ -167,7 +167,10 @@ private:
      */
     void printErrorContext() const;
 
+    auto readNumber(std::string prefix);
+
 private:
+    std::vector<Token> m_tokens;
     std::string m_source;
     size_t m_pos = 0;
     size_t m_line = 1;

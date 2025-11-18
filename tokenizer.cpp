@@ -5,6 +5,38 @@
 
 tokenizer::tokenizer(std::string source): m_source(std::move(source)) {}
 
+auto tokenizer::readNumber(std::string prefix = "") {
+    std::string num = std::move(prefix);
+    bool isFloat = false;
+
+    // Digits before decimal
+    while (peek().has_value() && std::isdigit(peek().value())) {
+        num += consume();
+    }
+
+    // Decimal part
+    if (peek().has_value() && peek().value() == '.') {
+        isFloat = true;
+        num += consume();
+        while (peek().has_value() && std::isdigit(peek().value())) {
+            num += consume();
+        }
+    }
+
+    try {
+        if (isFloat) {
+            m_tokens.emplace_back(TokenType::FLOAT_LITERAL, std::stod(num));
+        } else {
+            m_tokens.emplace_back(TokenType::INT_LITERAL, std::stoi(num));
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Number parsing error: " << e.what() << std::endl;
+        printErrorContext();
+        std::exit(EXIT_FAILURE);
+    }
+}
+
+
 /**
  * Tokenizes the input string, breaking it down into a sequence of tokens.
  *
@@ -15,8 +47,9 @@ tokenizer::tokenizer(std::string source): m_source(std::move(source)) {}
  * @return A vector of Token structures, representing the tokens found in the input string.
  */
 std::vector<Token> tokenizer::tokenize() {
-    std::vector<Token> tokens;
     std::string buf;
+
+    bool lastWasValue = false; // Tracks if last emitted token was a "value"
 
     static const std::unordered_map<std::string, TokenType> keywords = {
         {"dup", TokenType::DUP},
@@ -42,138 +75,159 @@ std::vector<Token> tokenizer::tokenize() {
 
     while (peek().has_value()) {
         switch (const char c = consume()) {
+            // --- Whitespace / comments ---
             case ' ':
+            case '\t': {
+                break;
+            }
             case '\n':
-            case '\r':
+            case '\r': {
+                // newline: we consider this a "statement boundary", so allow unary - after line break
+                lastWasValue = false;
                 break;
-            case ';':
+            }
+            case ';': {
+                // Skip comment until end of line
                 while (peek().has_value() && peek().value() != '\n') consume();
-                break; // Skip comments
-            case '+': tokens.emplace_back(Token{TokenType::ADD, '+', m_line, m_column}); break;
-            case '-': tokens.emplace_back(TokenType::SUB, '-', m_line, m_column); break;
-            case '*': tokens.emplace_back(TokenType::MUL, '*', m_line, m_column); break;
-            case '/': tokens.emplace_back(TokenType::DIV, '/', m_line, m_column); break;
-            case '%': tokens.emplace_back(TokenType::MOD, '%', m_line, m_column); break;
-            case '=': tokens.emplace_back(TokenType::EQUALS, '=', m_line, m_column); break;
-            case '?': tokens.emplace_back(TokenType::ZERO_CHECK, '?', m_line, m_column); break;
-            case '!':
-                if (peek().has_value() && peek().value() == '=') {
-                    consume();
-                    tokens.emplace_back(TokenType::NOT_EQUALS, std::string{}, m_line, m_column);
-                }
-                else {
-                    tokens.emplace_back(TokenType::STORE_VARIABLE, std::string{}, m_line, m_column);
+                break;
+            }
+                // --- Operators / punctuation ---
+            case '+': {
+                m_tokens.emplace_back(TokenType::ADD, '+', m_line, m_column);
+                lastWasValue = false;
+                break;
+            }
+            case '-': {
+                auto next = peek();
+                bool nextIsDigit = next.has_value() &&
+                                   std::isdigit(static_cast<unsigned char>(next.value()));
+
+                if (nextIsDigit) {
+                    // We've already consumed '-', so pass "-" as prefix
+                    readNumber("-");
+                } else {
+                    // Binary subtraction operator
+                    m_tokens.emplace_back(TokenType::SUB, std::string{}, m_line, m_column);
                 }
                 break;
-            case '<':
+            }
+            case '*': {
+                m_tokens.emplace_back(TokenType::MUL, '*', m_line, m_column);
+                lastWasValue = false;
+                break;
+            }
+            case '/': {
+                m_tokens.emplace_back(TokenType::DIV, '/', m_line, m_column);
+                lastWasValue = false;
+                break;
+            }
+            case '%': {
+                m_tokens.emplace_back(TokenType::MOD, '%', m_line, m_column);
+                lastWasValue = false;
+                break;
+            }
+            case '=': {
+                m_tokens.emplace_back(TokenType::EQUALS, '=', m_line, m_column);
+                lastWasValue = false;
+                break;
+            }
+            case '?': {
+                m_tokens.emplace_back(TokenType::ZERO_CHECK, '?', m_line, m_column);
+                lastWasValue = false;
+                break;
+            }
+            case '!': {
                 if (peek().has_value() && peek().value() == '=') {
                     consume();
-                    tokens.emplace_back(TokenType::LESS_THAN_EQUALS, std::string{}, m_line, m_column);
+                    m_tokens.emplace_back(TokenType::NOT_EQUALS, std::string{}, m_line, m_column);
                 }
                 else {
-                    tokens.emplace_back(TokenType::LESS_THAN, std::string{}, m_line, m_column);
+                    m_tokens.emplace_back(TokenType::STORE_VARIABLE, std::string{}, m_line, m_column);
                 }
+                lastWasValue = false;
                 break;
-            case '>':
+            }
+            case '<': {
                 if (peek().has_value() && peek().value() == '=') {
                     consume();
-                    tokens.emplace_back(TokenType::GREATER_THAN_EQUALS, std::string{}, m_line, m_column);
+                    m_tokens.emplace_back(TokenType::LESS_THAN_EQUALS, std::string{}, m_line, m_column);
                 }
                 else {
-                    tokens.emplace_back(TokenType::GREATER_THAN, std::string{}, m_line, m_column);
+                    m_tokens.emplace_back(TokenType::LESS_THAN, std::string{}, m_line, m_column);
                 }
+                lastWasValue = false;
                 break;
+            }
+            case '>': {
+                if (peek().has_value() && peek().value() == '=') {
+                    consume();
+                    m_tokens.emplace_back(TokenType::GREATER_THAN_EQUALS, std::string{}, m_line, m_column);
+                }
+                else {
+                    m_tokens.emplace_back(TokenType::GREATER_THAN, std::string{}, m_line, m_column);
+                }
+                lastWasValue = false;
+                break;
+            }
+            case '@': {
+                m_tokens.emplace_back(TokenType::LOAD_VARIABLE, std::string{}, m_line, m_column);
+                lastWasValue = false;
+                break;
+            }
+            // --- String literal ---
             case '"': {
                 const size_t startLine   = m_line;
                 const size_t startColumn = m_column - 1;
 
-                // Opening quote has already been consumed above
                 buf.clear();
 
-                // Read until closing quite
                 while (peek().has_value() && peek().value() != '"') {
                     buf += consume();
-
-                    // DEBUG LINE
-                    // std::cout << buf << '\n';
                 }
                 if (peek().has_value()) {
-                    consume(); // Consume the closing quote
-                    tokens.emplace_back(TokenType::STR_LITERAL, buf, m_line, m_column);
+                    consume(); // closing quote
+                    m_tokens.emplace_back(TokenType::STR_LITERAL, buf, startLine, startColumn);
                     buf.clear();
+                    lastWasValue = true; // string literal is a value
                 } else {
-                    std::cerr << "Error at line " << m_line << ", column " << m_column << ": Unterminated string literal" << std::endl;
+                    std::cerr << "Error at line " << m_line << ", column " << m_column
+                              << ": Unterminated string literal" << std::endl;
                     printErrorContext();
-                    exit(EXIT_FAILURE);
+                    std::exit(EXIT_FAILURE);
                 }
                 break;
             }
-                case '@': {
-                    tokens.emplace_back(TokenType::LOAD_VARIABLE, std::string{}, m_line, m_column);
-                    break;
-                }
-            default:
-                if (std::isalpha(c)) {
-                   buf += c;
-                    const size_t startLine   = m_line;
-                    const size_t startColumn = m_column - 1;
-                    while (peek().has_value() && std::isalnum(peek().value())) {
-                        buf += consume();
-                    }
-
-                   if (const auto it = keywords.find(buf); it != keywords.end()) {
-                        tokens.emplace_back(it->second, std::string{}, startLine, startColumn);
-                    }
-                    else {
-                        tokens.emplace_back(TokenType::IDENTIFIER, buf, startLine, startColumn);
-                    }
+            // --- Identifiers / keywords / numbers ---
+            default: {
+                if (std::isalpha(static_cast<unsigned char>(c))) {
                     buf.clear();
-                }
-                else if (isdigit(c)) {
-                    buf.clear();
-                    const size_t startLine   = m_line;
-                    const size_t startColumn = m_column - 1;
                     buf += c;
-                    bool isFloat = false;
-
-                    // Read digits before the decimal point
-                    while (peek().has_value() && std::isdigit(peek().value())) {
+                    while (peek().has_value() &&
+                           std::isalnum(static_cast<unsigned char>(peek().value()))) {
                         buf += consume();
+                           }
+
+                    if (const auto it = keywords.find(buf); it != keywords.end()) {
+                        m_tokens.emplace_back(it->second, std::string{}, m_line, m_column);
+                    } else {
+                        m_tokens.emplace_back(TokenType::IDENTIFIER, buf, m_line, m_column);
                     }
-
-                    // Check if the next char is '.' for float
-                    if (peek().has_value() && peek().value() == '.') {
-                        isFloat = true;
-                        buf += consume();  // consume '.'
-
-                        // Read digits after a decimal point
-                        while (peek().has_value() && std::isdigit(peek().value())) {
-                            buf += consume();
-                        }
-                    }
-
-                    try {
-                        if (isFloat) {
-                            tokens.emplace_back(TokenType::FLOAT_LITERAL, std::stod(buf), startLine, startColumn);
-                        } else {
-                            tokens.emplace_back(TokenType::INT_LITERAL, std::stoi(buf), startLine, startColumn);
-                        }
-                    } catch (const std::exception& e) {
-                        std::cerr << "Number parsing error: " << e.what() << std::endl;
-                        printErrorContext();
-                        exit(EXIT_FAILURE);
-                    }
-
                     buf.clear();
+                }
+                else if (std::isdigit(static_cast<unsigned char>(c))) {
+                    std::string prefix(1, c);
+                    readNumber(std::move(prefix));
                 }
                 else {
-                    std::cerr << "Error at line " << m_line << ", column " << m_column << ": Unexpected character '" << c << "'" << std::endl;
+                    std::cerr << "Error at line " << m_line << ", column " << m_column
+                              << ": Unexpected character '" << c << "'\n";
                     printErrorContext();
-                    exit(EXIT_FAILURE);
+                    std::exit(EXIT_FAILURE);
                 }
+            }
         }
     }
-    return tokens;
+    return m_tokens;
 }
 
 /**

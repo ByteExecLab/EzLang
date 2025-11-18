@@ -31,6 +31,20 @@ int main(int argc, char** argv) {
     tokenizer tokenizer(source);
     auto tokens = tokenizer.tokenize();
 
+    // // DEBUG: print tokens
+    // for (const auto& t : tokens) {
+    //     std::cout << tokenTypeToString(t.type);
+    //     if (std::holds_alternative<int>(t.value)) {
+    //         std::cout << "(" << std::get<int>(t.value) << ")\n";
+    //     } else if (std::holds_alternative<double>(t.value)) {
+    //         std::cout << "(" << std::get<double>(t.value) << ")\n";
+    //     } else if (std::holds_alternative<std::string>(t.value)) {
+    //         std::cout << "(\"" << std::get<std::string>(t.value) << "\")\n";
+    //     }
+    //     std::cout << " ";
+    // }
+    // std::cout << "\n";
+
     Interpreter::validateBlocks(tokens);
 
     auto stack = Stack();
