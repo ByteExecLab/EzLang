@@ -8,7 +8,7 @@
 
 class Stack {
 private:
-    std::stack<std::variant<int, double, std::string>> m_stack;
+    std::stack<std::variant<int, double, std::string, bool>> m_stack;
 
 public:
     /**
@@ -24,7 +24,7 @@ public:
      *
      * @param value The value to push onto the stack. This can be an integer or a string.
      */
-    void push(const std::variant<int, double, std::string>& value);
+    void push(const StackValue& value);
 
     /**
      * Duplicates the top element of the stack and pushes it onto the stack.
@@ -39,7 +39,7 @@ public:
      * @return The top value of the stack, which can be an integer or a string.
      * @throws std::runtime_error If the stack is empty.
      */
-    std::variant<int, double, std::string> pop();
+    StackValue pop();
 
     /**
      * Returns the top value of the stack without removing it.
@@ -48,7 +48,7 @@ public:
      * @throws std::runtime_error If the stack is empty.
      */
     [[nodiscard]]
-    std::variant<int, double, std::string> peek() const;
+    StackValue peek() const;
 
     /**
      * Swaps the top two elements of the stack.

@@ -16,7 +16,7 @@
  *
  * @param value The value to be pushed onto the stack. It can be either an integer or a string.
  */
-void Stack::push(const std::variant<int, double, std::string>& value) {
+void Stack::push(const StackValue& value) {
     m_stack.push(value);
 }
 
@@ -97,7 +97,7 @@ void Stack::tuck() {
  * @return The top value of the stack, which can be an integer or a string.
  * @throws std::runtime_error If the stack is empty.
  */
-std::variant<int, double, std::string> Stack::pop() {
+StackValue Stack::pop() {
     if (m_stack.empty()) {
         throw std::runtime_error("[Stack::pop]: Stack must have at least one element to pop");
     }
@@ -113,7 +113,7 @@ std::variant<int, double, std::string> Stack::pop() {
  * @return The top value of the stack, which can be an integer or a string.
  * @throws std::runtime_error If the stack is empty.
  */
-std::variant<int, double, std::string> Stack::peek() const {
+StackValue Stack::peek() const {
     if (m_stack.empty()) {
         throw std::runtime_error("[Stack::peek]: Stack must have at least one element to peek");
     }

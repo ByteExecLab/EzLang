@@ -1,17 +1,1 @@
--5 3 < if
-    "LT OK" print
-else
-    "LT FAIL" print
-endif
-
--5 -5 >= if
-    "GE OK" print
-else
-    "GE FAIL" print
-endif
-
--3.5 -3.6 > if
-    "FLOAT GT OK" print
-else
-    "FLOAT GT FAIL" print
-endif
+false print

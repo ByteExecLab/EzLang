@@ -10,7 +10,7 @@
 #include <variant>
 #include <vector>
 
-using StackValue = std::variant<int, double, std::string>;
+using StackValue = std::variant<int, double, std::string, bool>;
 
 class Memory {
 public:
@@ -18,9 +18,11 @@ public:
 
     void write(uint32_t address, const StackValue& value);
 
+    [[nodiscard]]
     StackValue read(uint32_t address) const;
 
     void dump() const;
+    [[nodiscard]]
     size_t size() const;
 private:
     std::vector<StackValue> m_memory;

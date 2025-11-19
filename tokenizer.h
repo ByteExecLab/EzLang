@@ -8,9 +8,11 @@
 #include <variant>
 #include <vector>
 
+#include "Common.h"
+
 enum class TokenType: uint8_t {
     DUP, DROP, SWAP, OVER, NIP, TUCK,
-    PRINT, INT_LITERAL, STR_LITERAL, IDENTIFIER, FLOAT_LITERAL,
+    PRINT, INT_LITERAL, STR_LITERAL, BOOL_LITERAL, IDENTIFIER, FLOAT_LITERAL,
     CONST, LOAD_VARIABLE, STORE_VARIABLE,
     // Control
     IF, ELSE, WHILE, DO, FOR, END, ENDIF, CONTINUE, BREAK, RETURN,
@@ -41,7 +43,7 @@ struct Token {
      * int, double, or std::string. The primary use case of this type is to facilitate the storage
      * of diverse data types associated with tokens produced during the tokenization process.
      */
-    std::variant<int, double, std::string> value;
+    StackValue value;
 
     size_t line = 0;
     size_t column = 0;
@@ -83,21 +85,21 @@ struct Token {
      * @param t The type of the token, defined by the TokenType enumeration.
      * @param v The value associated with the token, as a std::variant<int, double, std::string>.
      */
-    Token(const TokenType t, std::variant<int, double, std::string> v) : type(t), value(std::move(v)) {}
+    Token(const TokenType t, StackValue v) : type(t), value(std::move(v)) {}
 
-    Token(TokenType t, int v, size_t line_, size_t col_)
+    Token(const TokenType t, int v, const size_t line_, const size_t col_)
         : type(t), value(v), line(line_), column(col_) {}
 
-    Token(TokenType t, double v, size_t line_, size_t col_)
+    Token(const TokenType t, double v, const size_t line_, const size_t col_)
         : type(t), value(v), line(line_), column(col_) {}
 
-    Token(TokenType t, const std::string& v, size_t line_, size_t col_)
+    Token(const TokenType t, const std::string& v, const size_t line_, const size_t col_)
         : type(t), value(v), line(line_), column(col_) {}
 
-    Token(TokenType t, size_t line_, size_t col_)
+    Token(const TokenType t, const size_t line_, const size_t col_)
         : type(t), value(0), line(line_), column(col_) {}
 
-    Token(TokenType t, std::variant<int, double, std::string> v, size_t line_, size_t col_)
+    Token(const TokenType t, StackValue v, const size_t line_, const size_t col_)
         : type(t), value(std::move(v)), line(line_), column(col_) {}
 };
 
@@ -193,6 +195,7 @@ inline std::string tokenTypeToString(const TokenType type) {
         {TokenType::PRINT, "PRINT"},
         {TokenType::INT_LITERAL, "INT_LITERAL"},
         {TokenType::STR_LITERAL, "STR_LITERAL"},
+        {TokenType::BOOL_LITERAL, "BOOL_LITERAL"},
         {TokenType::IF, "IF"},
         {TokenType::ELSE, "ELSE"},
         {TokenType::ENDIF, "ENDIF"},

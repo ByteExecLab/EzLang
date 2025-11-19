@@ -91,7 +91,7 @@ Interpreter::Interpreter(std::vector<Token> tokens, Stack stack, std::string sou
  * The variant is passed by const reference to avoid unnecessary copying
  * and to ensure the function does not modify the original variant.
  */
-void Interpreter::printVariant(const std::variant<int, double, std::string>& value) {
+void Interpreter::printVariant(const StackValue& value) {
     std::visit([](auto&& arg) { std::cout << arg << std::endl; }, value);
 }
 
@@ -1151,9 +1151,7 @@ ControlSignal Interpreter::executeBlock(const std::vector<Token> &block) {
     auto result = ControlSignal::None;
 
     while (m_pos < m_tokens.size()) {
-        ControlSignal sig = executeSingleToken();
-
-        if (sig != ControlSignal::None) {
+        if (const ControlSignal sig = executeSingleToken(); sig != ControlSignal::None) {
             result = sig;
             break;
         }
@@ -1167,17 +1165,26 @@ ControlSignal Interpreter::executeBlock(const std::vector<Token> &block) {
     return result;
 }
 
-bool Interpreter::isTruly(const StackValue &v) {
-    if (std::holds_alternative<int>(v)) {
-        return std::get<int>(v) != 0; // Includes negative
+bool Interpreter::isTruly(const StackValue &value) {
+    if (std::holds_alternative<bool>(value)) {
+        return std::get<bool>(value);
     }
 
-    if (std::holds_alternative<double>(v)) {
-        return std::get<double>(v) != 0.0; // Includes negative
+    if (std::holds_alternative<int>(value)) {
+        return std::get<int>(value) != 0; // Includes negative
     }
 
-    if (std::holds_alternative<double>(v)) {
-        return !std::get<std::string>(v).empty();
+    if (std::holds_alternative<double>(value)) {
+        return std::get<double>(value) != 0.0; // Includes negative
+    }
+
+    if (std::holds_alternative<double>(value)) {
+        return !std::get<std::string>(value).empty();
+    }
+
+    if (std::holds_alternative<std::string>(value)) {
+        const auto& s = std::get<std::string>(value);
+        return !s.empty();
     }
 
     return false;
@@ -1319,9 +1326,9 @@ void Interpreter::executeZeroCheck() {
         throw std::runtime_error("[ERROR]: Stack underflow for zero-check");
     }
 
-    StackValue v = m_stack.pop();
+    const StackValue v = m_stack.pop();
 
-    bool zeroLike = !isTruly(v);
+    const bool zeroLike = !isTruly(v);
 
     m_stack.push(zeroLike ? 1 : 0);
 }
@@ -1334,29 +1341,32 @@ ControlSignal Interpreter::executeSingleToken() {
     const Token& tok = m_tokens[m_pos];
     const auto type = tok.type;
 
-    if (type == TokenType::INT_LITERAL ||
-        type == TokenType::FLOAT_LITERAL ||
-        type == TokenType::STR_LITERAL) {
-        executePush(tok.value);
-        consume();
-        return ControlSignal::None;
+    switch (tok.type) {
+        case TokenType::INT_LITERAL:
+        case TokenType::FLOAT_LITERAL:
+        case TokenType::STR_LITERAL:
+        case TokenType::BOOL_LITERAL: {
+            executePush(tok.value);
+            consume();
+            return ControlSignal::None;
+        }
+        case TokenType::IDENTIFIER: {
+            m_controlSignal = ControlSignal::None;
+            executeIdentifier();
+            return m_controlSignal;
+        }
+        default: {
+            // everything else via executionMap
+            auto it = executionMap.find(type);
+            if (it != executionMap.end()) {
+                m_controlSignal = ControlSignal::None;
+                it->second();            // handlers themselves call consume(TokenType::X, ...)
+                return m_controlSignal;
+            }
+        }
     }
 
-    if (type == TokenType::IDENTIFIER) {
-        m_controlSignal = ControlSignal::None;
-        executeIdentifier();
-        return m_controlSignal;
-    }
-
-    // everything else via executionMap
-    auto it = executionMap.find(type);
-    if (it != executionMap.end()) {
-        m_controlSignal = ControlSignal::None;
-        it->second();            // handlers themselves call consume(TokenType::X, ...)
-        return m_controlSignal;
-    }
-
-    throw std::runtime_error("Unknown token type: " + tokenTypeToString(type));
+    throw std::runtime_error("[ERROR]: Unknown token type: " + tokenTypeToString(type));
 }
 
 

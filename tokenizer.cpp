@@ -202,12 +202,17 @@ std::vector<Token> tokenizer::tokenize() {
                 if (std::isalpha(static_cast<unsigned char>(c))) {
                     buf.clear();
                     buf += c;
-                    while (peek().has_value() &&
-                           std::isalnum(static_cast<unsigned char>(peek().value()))) {
+                    while (peek().has_value() && std::isalnum(static_cast<unsigned char>(peek().value()))) {
                         buf += consume();
-                           }
+                    }
 
-                    if (const auto it = keywords.find(buf); it != keywords.end()) {
+                    if (buf == "true") {
+                        m_tokens.emplace_back(TokenType::BOOL_LITERAL, true, m_line, m_column);
+                    }
+                    else if (buf == "false") {
+                        m_tokens.emplace_back(TokenType::BOOL_LITERAL, false, m_line, m_column);
+                    }
+                    else if (const auto it = keywords.find(buf); it != keywords.end()) {
                         m_tokens.emplace_back(it->second, std::string{}, m_line, m_column);
                     } else {
                         m_tokens.emplace_back(TokenType::IDENTIFIER, buf, m_line, m_column);
