@@ -5,6 +5,7 @@
 #include <map>
 #include <utility>
 #include <variant>
+#include <type_traits>
 
 Interpreter::Interpreter(std::vector<Token> tokens, Stack stack, std::string source)
     : m_stack(std::move(stack)), m_tokens(std::move(tokens)), m_memory(1024), m_source(std::move(source)) {
@@ -92,7 +93,19 @@ Interpreter::Interpreter(std::vector<Token> tokens, Stack stack, std::string sou
  * and to ensure the function does not modify the original variant.
  */
 void Interpreter::printVariant(const StackValue& value) {
-    std::visit([](auto&& arg) { std::cout << arg << std::endl; }, value);
+    std::visit([](auto&& arg) {
+        using T = std::decay_t<decltype(arg)>;
+
+        if constexpr (std::is_same_v<T, std::monostate>) {
+            std::cout << "nil";
+        }
+        else if constexpr (std::is_same_v<T, bool>) {
+            std::cout << (arg ? "true" : "false");
+        }
+        else {
+            std::cout << arg << std::endl;
+        }
+    }, value);
 }
 
 /**
@@ -172,11 +185,16 @@ double Interpreter::toDouble(const StackValue &v) {
     if (std::holds_alternative<int>(v)) {
         return static_cast<double>(std::get<int>(v));
     }
+
     if (std::holds_alternative<double>(v)) {
         return static_cast<double>(std::get<double>(v));
     }
 
-    throw std::runtime_error("[ERROR]: Expected numeric type");
+    if (std::holds_alternative<bool>(v)) {
+        return std::get<bool>(v) ? 1.0 : 0.0;
+    }
+
+    throw std::runtime_error("[ERROR]: Expected numeric value, got non-numeric type");
 }
 
 void Interpreter::validateBlocks(const std::vector<Token> &tokens) {
@@ -731,7 +749,7 @@ void Interpreter::executeBinary(const TokenType tokenType) {
  * operation (equality, less than, greater than, etc.), and pushes the boolean
  * result (represented as 1 for true, 0 for false) back onto the stack.
  *
- * @param tokenType The TokenType representing the logical operation to perform.
+ * @param op
  * Must be one of TokenType::EQUALS, TokenType::LESS_THAN,
  * TokenType::GREATER_THAN, TokenType::LESS_THAN_EQUALS,
  * TokenType::GREATER_THAN_EQUALS, or TokenType::NOT_EQUALS.
@@ -739,17 +757,17 @@ void Interpreter::executeBinary(const TokenType tokenType) {
  * @throws std::runtime_error if the stack contains fewer th two elements.
  */
 void Interpreter::executeLogical(const TokenType op) {
- if (m_stack.size() < 2) {
+    if (m_stack.size() < 2) {
         throw std::runtime_error("[ERROR]: Stack underflow for logical operation");
     }
 
-    StackValue r_value = m_stack.pop(); //top
-    StackValue l_value = m_stack.pop(); // below top
+    const StackValue r_value = m_stack.pop(); //top
+    const StackValue l_value = m_stack.pop(); // below top
 
     // Helper lambda for numeric comparison
     auto toDouble = [&](const StackValue& v) -> double {
-        return std::visit([](auto&& val) -> double {
-            using T = std::decay_t<decltype(val)>;
+        return std::visit([]<typename T0>(T0&& val) -> double {
+            using T = std::decay_t<T0>;
 
             if constexpr (std::is_same_v<T, int>) {
                 return static_cast<double>(val);
@@ -1214,6 +1232,10 @@ ControlSignal Interpreter::executeBlock(const std::vector<Token> &block) {
 }
 
 bool Interpreter::isTruly(const StackValue &value) {
+    if (std::holds_alternative<std::monostate>(value)) {
+        return false; // Nil is always false
+    }
+
     if (std::holds_alternative<bool>(value)) {
         return std::get<bool>(value);
     }
@@ -1393,7 +1415,8 @@ ControlSignal Interpreter::executeSingleToken() {
         case TokenType::INT_LITERAL:
         case TokenType::FLOAT_LITERAL:
         case TokenType::STR_LITERAL:
-        case TokenType::BOOL_LITERAL: {
+        case TokenType::BOOL_LITERAL:
+        case TokenType::NIL_LITERAL: {
             executePush(tok.value);
             consume();
             return ControlSignal::None;

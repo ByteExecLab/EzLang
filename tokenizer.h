@@ -13,7 +13,7 @@
 enum class TokenType: uint8_t {
     DUP, DROP, SWAP, OVER, NIP, TUCK,
     PRINT, INT_LITERAL, STR_LITERAL, BOOL_LITERAL, IDENTIFIER, FLOAT_LITERAL,
-    CONST, LOAD_VARIABLE, STORE_VARIABLE,
+    CONST, LOAD_VARIABLE, STORE_VARIABLE, NIL_LITERAL,
 
     // Logical
     EQUALS,NOT_EQUALS, LESS_THAN, LESS_THAN_EQUALS, GREATER_THAN, GREATER_THAN_EQUALS, ZERO_CHECK,
@@ -52,7 +52,7 @@ struct Token {
     size_t line = 0;
     size_t column = 0;
 
-    explicit Token(const TokenType t) : type(t), value(0) {} /**
+    explicit Token(const TokenType t) : type(t), value(std::monostate{}) {} /**
      * Constructs a Token object with the specified token type and integer value.
      *
      * @param t The type of the token, represented by the `TokenType` enumeration.
@@ -200,6 +200,7 @@ inline std::string tokenTypeToString(const TokenType type) {
         {TokenType::INT_LITERAL, "INT_LITERAL"},
         {TokenType::STR_LITERAL, "STR_LITERAL"},
         {TokenType::BOOL_LITERAL, "BOOL_LITERAL"},
+        {TokenType::NIL_LITERAL, "nil"},
         {TokenType::IF, "IF"},
         {TokenType::ELSE, "ELSE"},
         {TokenType::ENDIF, "ENDIF"},

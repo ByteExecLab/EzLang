@@ -215,6 +215,10 @@ std::vector<Token> tokenizer::tokenize() {
                     else if (buf == "false") {
                         m_tokens.emplace_back(TokenType::BOOL_LITERAL, false, m_line, m_column);
                     }
+                    else if (buf == "nil" || buf == "none") {
+                        // Nil literal
+                        m_tokens.emplace_back(TokenType::NIL_LITERAL, std::monostate{}, m_line, m_column);
+                    }
                     else if (const auto it = keywords.find(buf); it != keywords.end()) {
                         m_tokens.emplace_back(it->second, std::string{}, m_line, m_column);
                     } else {

@@ -7,7 +7,7 @@
 #include <string>
 #include <variant>
 
-using StackValue = std::variant<int, double, std::string, bool>;
+using StackValue = std::variant<std::monostate, int, double, std::string, bool>;
 
 
 #endif //COMMON_H

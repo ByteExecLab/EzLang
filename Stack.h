@@ -8,7 +8,7 @@
 
 class Stack {
 private:
-    std::stack<std::variant<int, double, std::string, bool>> m_stack;
+    std::stack<StackValue> m_stack;
 
 public:
     /**
