@@ -14,10 +14,14 @@ enum class TokenType: uint8_t {
     DUP, DROP, SWAP, OVER, NIP, TUCK,
     PRINT, INT_LITERAL, STR_LITERAL, BOOL_LITERAL, IDENTIFIER, FLOAT_LITERAL,
     CONST, LOAD_VARIABLE, STORE_VARIABLE,
+
+    // Logical
+    EQUALS,NOT_EQUALS, LESS_THAN, LESS_THAN_EQUALS, GREATER_THAN, GREATER_THAN_EQUALS, ZERO_CHECK,
+    AND, OR, NOT,
+
     // Control
     IF, ELSE, WHILE, DO, FOR, END, ENDIF, CONTINUE, BREAK, RETURN,
     ADD, SUB, MUL, DIV, MOD,
-    EQUALS,NOT_EQUALS, LESS_THAN, LESS_THAN_EQUALS, GREATER_THAN, GREATER_THAN_EQUALS, ZERO_CHECK,
     TRACE,
 
     WORD,
@@ -199,6 +203,9 @@ inline std::string tokenTypeToString(const TokenType type) {
         {TokenType::IF, "IF"},
         {TokenType::ELSE, "ELSE"},
         {TokenType::ENDIF, "ENDIF"},
+        {TokenType::AND, "AND"},
+        {TokenType::OR, "OR"},
+        {TokenType::NOT, "NOT"},
         {TokenType::WHILE, "WHILE"},
         {TokenType::DO, "DO"},
         {TokenType::CONTINUE, "CONTINUE"},

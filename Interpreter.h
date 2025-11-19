@@ -866,6 +866,12 @@ private:
      */
     void executeStoreVariable();
 
+    void executeAnd();
+
+    void executeOr();
+
+    void executeNot();
+
     /**
      * Checks if the given StackValue is of a specific type.
      *
@@ -957,6 +963,8 @@ private:
      * @throws std::runtime_error If the value is not numeric and cannot be converted.
      */
     static double toDouble(const StackValue& v);
+
+    static bool toBool(const StackValue& v);
 
     /**
      * @brief Determines whether two StackValue instances both contain integer values.
@@ -1116,6 +1124,8 @@ private:
      * normal program output on `stdout`.
      */
     void printRuntimeErrorContext(size_t line , size_t column) const;
+
+    void ensureStackSize(size_t needed, const std::string& opName) const;
 
     /**
      * Retrieves the current token being processed by the interpreter.

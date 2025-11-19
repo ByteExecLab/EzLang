@@ -164,6 +164,10 @@ bool Interpreter::bothInt(const StackValue &a, const StackValue &b) {
     return std::holds_alternative<int>(a) && std::holds_alternative<int>(b);
 }
 
+bool Interpreter::toBool(const StackValue &v) {
+    return isTruly(v);
+}
+
 double Interpreter::toDouble(const StackValue &v) {
     if (std::holds_alternative<int>(v)) {
         return static_cast<double>(std::get<int>(v));
@@ -244,8 +248,7 @@ void Interpreter::validateBlocks(const std::vector<Token> &tokens) {
                     errorAt("[ERROR]: 'end' without matching block", tok);
                 }
 
-                BlockKind kind = stack.back().kind;
-                if (kind == BlockKind::While || kind == BlockKind::Word) {
+                if (const BlockKind kind = stack.back().kind; kind == BlockKind::While || kind == BlockKind::Word) {
                     stack.pop_back();
                 } else {
                     errorAt("[ERROR]: 'end' used to close non-loop / non-word block", tok);
@@ -277,7 +280,7 @@ void Interpreter::validateBlocks(const std::vector<Token> &tokens) {
 }
 
 
-void Interpreter::printRuntimeErrorContext(size_t line , size_t column) const {
+void Interpreter::printRuntimeErrorContext(const size_t line , const size_t column) const {
     size_t idx = 0;
     size_t currentLine = 1;
 
@@ -289,17 +292,28 @@ void Interpreter::printRuntimeErrorContext(size_t line , size_t column) const {
         idx++;
     }
 
-    size_t line_start = idx;
+    const size_t line_start = idx;
     while (idx < m_source.size() && m_source[idx] != '\n') {
         idx++;
     }
-    size_t line_end = idx;
+    const size_t line_end = idx;
 
-    std::string lineStr = m_source.substr(line_start, line_end - line_start);
+    const std::string lineStr = m_source.substr(line_start, line_end - line_start);
     std::cerr << "    " << lineStr << "\n";
     std::cerr << "    ";
     for (size_t i = 1; i < column; ++i) std::cerr << " ";
     std::cerr << "^\n";
+}
+
+// TODO: Move this to stack class
+void Interpreter::ensureStackSize(const size_t needed, const std::string &opName) const {
+     if (m_stack.size() < needed) {
+         throw std::runtime_error(
+             "[ERROR]: Stack underflow for '" + opName +
+             "' — requires " + std::to_string(needed) +
+             " values, but only " + std::to_string(m_stack.size()) + " present"
+         );
+     }
 }
 
 
@@ -1094,6 +1108,40 @@ void Interpreter::executeLoadVariable() {
 
     consume(TokenType::LOAD_VARIABLE, "Expected @ after IDENTIFIER"); // consume END
 }
+
+void Interpreter::executeAnd() {
+    consume(TokenType::AND, "Expected 'and'");
+    ensureStackSize(2, "AND");
+
+    const StackValue b = m_stack.pop();
+    const StackValue a = m_stack.pop();
+
+    const bool result = isTruly(a) && isTruly(b);
+    m_stack.push(static_cast<int>(result));
+}
+
+void Interpreter::executeOr() {
+    consume(TokenType::OR, "Expected 'or'");
+    ensureStackSize(2, "OR");
+
+    const StackValue b = m_stack.pop();
+    const StackValue a = m_stack.pop();
+
+    const bool result = isTruly(a) || isTruly(b);
+    m_stack.push(static_cast<int>(result));
+}
+
+void Interpreter::executeNot() {
+    consume(TokenType::NOT, "Expected 'not'");
+    ensureStackSize(1, "NOT");
+
+    const StackValue a = m_stack.pop();
+
+    const bool result = !isTruly(a);
+    m_stack.push(static_cast<int>(result));
+}
+
+
 /**
  * Executes the operation to store a variable into memory.
  *
@@ -1355,6 +1403,20 @@ ControlSignal Interpreter::executeSingleToken() {
             executeIdentifier();
             return m_controlSignal;
         }
+
+        // logical ops:
+        case TokenType::AND: {
+            executeAnd();
+            return ControlSignal::None;
+        }
+        case TokenType::OR: {
+            executeOr();
+            return ControlSignal::None;
+        }
+        case TokenType::NOT: {
+            executeNot();
+            return ControlSignal::None;
+        }
         default: {
             // everything else via executionMap
             auto it = executionMap.find(type);
@@ -1390,9 +1452,7 @@ void Interpreter::execute() {
     while (m_pos < m_tokens.size()) {
         const Token& tok = m_tokens[m_pos];
         try {
-           ControlSignal signal = executeSingleToken();
-
-            if (signal == ControlSignal::Continue || signal == ControlSignal::Break || signal == ControlSignal::Return) {
+            if (const ControlSignal signal = executeSingleToken(); signal == ControlSignal::Continue || signal == ControlSignal::Break || signal == ControlSignal::Return) {
                 // At the top level, these are illegal
                 std::string msg;
                 if (signal == ControlSignal::Continue) msg = "[ERROR]: 'continue' used outside of the loop";
@@ -1416,23 +1476,23 @@ void Interpreter::execute() {
             std::cerr << "Current Pos  : " << reportPos << " / " << m_tokens.size() << "\n";
 
             if (reportPos < m_tokens.size()) {
-                const Token& tok = m_tokens[reportPos];
+                const Token& token = m_tokens[reportPos];
 
-                std::cerr << "Line         : " << tok.line << "\n";
-                std::cerr << "Column       : " << tok.column << "\n";
-                std::cerr << "Token Type   : " << tokenTypeToString(tok.type) << "\n";
+                std::cerr << "Line         : " << token.line << "\n";
+                std::cerr << "Column       : " << token.column << "\n";
+                std::cerr << "Token Type   : " << tokenTypeToString(token.type) << "\n";
                 std::cerr << "Token Value  : ";
-                if (std::holds_alternative<int>(tok.value)) {
-                    std::cerr << std::get<int>(tok.value) << "\n";
-                } else if (std::holds_alternative<double>(tok.value)) {
-                    std::cerr << std::get<double>(tok.value) << "\n";
-                } else if (std::holds_alternative<std::string>(tok.value)) {
-                    std::cerr << std::get<std::string>(tok.value) << "\n";
+                if (std::holds_alternative<int>(token.value)) {
+                    std::cerr << std::get<int>(token.value) << "\n";
+                } else if (std::holds_alternative<double>(token.value)) {
+                    std::cerr << std::get<double>(token.value) << "\n";
+                } else if (std::holds_alternative<std::string>(token.value)) {
+                    std::cerr << std::get<std::string>(token.value) << "\n";
                 } else {
                     std::cerr << "<none>\n";
                 }
 
-                printRuntimeErrorContext(tok.line, tok.column);
+                printRuntimeErrorContext(token.line, token.column);
             } else {
                 std::cerr << "Token        : <Position beyond token list>\n";
             }
