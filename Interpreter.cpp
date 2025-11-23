@@ -8,7 +8,7 @@
 #include <type_traits>
 
 Interpreter::Interpreter(std::vector<Token> tokens, Stack stack, std::string source)
-    : m_stack(std::move(stack)), m_tokens(std::move(tokens)), m_memory(1024), m_source(std::move(source)) {
+    : m_source(std::move(source)), m_stack(std::move(stack)), m_tokens(std::move(tokens)), m_memory(1024) {
 
     executionMap = {
         // Stack operations

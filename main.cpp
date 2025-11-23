@@ -3,10 +3,11 @@
 #include <sstream>
 #include <vector>
 #include <iomanip>
+#include <filesystem>
 
 #include "Interpreter.h"
 #include "tokenizer.h"
-
+#include "Loader.h"
 
 void dumpTokensFn(const std::vector<Token>& tokens) {
     std::cout << "==== TOKEN DUMP ====\n\n";
@@ -25,7 +26,7 @@ void dumpTokensFn(const std::vector<Token>& tokens) {
     for (size_t i = 0; i < tokens.size(); ++i) {
         const auto& t = tokens[i];
 
-        std::string pos = std::to_string(t.line) + ":" + std::to_string(t.column);
+        std::string pos  = std::to_string(t.line) + ":" + std::to_string(t.column);
         std::string type = tokenTypeToString(t.type);
 
         std::string val;
@@ -36,6 +37,8 @@ void dumpTokensFn(const std::vector<Token>& tokens) {
         } else if (std::holds_alternative<std::string>(t.value)) {
             const auto& s = std::get<std::string>(t.value);
             if (!s.empty()) val = "\"" + s + "\"";
+        } else if (std::holds_alternative<bool>(t.value)) {
+            val = std::get<bool>(t.value) ? "true" : "false";
         }
 
         std::cout << std::left
@@ -49,7 +52,6 @@ void dumpTokensFn(const std::vector<Token>& tokens) {
 }
 
 int main(int argc, char** argv) {
-
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " [--dump-tokens] <source-file>\n";
         return 1;
@@ -73,16 +75,9 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // Read file
-    std::ifstream in(filename);
-    if (!in) {
-        std::cerr << "Error: could not open file: " << filename << "\n";
-        return 1;
-    }
-
-    std::stringstream buffer;
-    buffer << in.rdbuf();
-    std::string source = buffer.str();
+    // Load + expand includes
+    std::filesystem::path path = filename;
+    std::string source = loadSourceWithIncludes(path);
 
     // Tokenize
     tokenizer lex(source);
@@ -94,7 +89,7 @@ int main(int argc, char** argv) {
     }
 
     // Normal execution path
-    auto stack = Stack();
+    Stack stack;
     Interpreter interp(tokens, stack, source);
     interp.execute();
 
