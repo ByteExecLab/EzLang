@@ -9,8 +9,7 @@
 #include <variant>
 #include <variant>
 #include <vector>
-
-using StackValue = std::variant<std::monostate, int, double, std::string, bool>;
+#include "Common.h"
 
 class Memory {
 public:

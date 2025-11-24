@@ -74,6 +74,13 @@ std::vector<Token> tokenizer::tokenize() {
         {"break", TokenType::BREAK},
         {"return", TokenType::RETURN},
         {"word", TokenType::WORD},
+
+        // Arrays & Structs
+        {"array-len",  TokenType::ARRAY_LEN},
+        {"array-get",  TokenType::ARRAY_GET},
+        {"array-set",  TokenType::ARRAY_SET},
+        {"struct-get", TokenType::STRUCT_GET},
+        {"struct-set", TokenType::STRUCT_SET},
     };
 
     while (peek().has_value()) {
@@ -94,15 +101,40 @@ std::vector<Token> tokenizer::tokenize() {
                 while (peek().has_value() && peek().value() != '\n') consume();
                 break;
             }
-                // --- Operators / punctuation ---
+            case '[': {
+                m_tokens.emplace_back(TokenType::ARRAY_START, std::string{}, m_line, m_column);
+                lastWasValue = false;
+                break;
+            }
+            case ']': {
+                m_tokens.emplace_back(TokenType::ARRAY_END, std::string{}, m_line, m_column);
+                // acts like an operator, not a literal → keep lastWasValue = false
+                lastWasValue = false;
+                break;
+            }
+            case '{': {
+                m_tokens.emplace_back(TokenType::STRUCT_START, std::string{}, m_line, m_column);
+                lastWasValue = false;
+                break;
+            }
+            case '}': {
+                m_tokens.emplace_back(TokenType::STRUCT_END, std::string{}, m_line, m_column);
+                lastWasValue = false;
+                break;
+            }
+            // --- Operators / punctuation ---
             case '+': {
                 m_tokens.emplace_back(TokenType::ADD, '+', m_line, m_column);
                 lastWasValue = false;
                 break;
             }
+            case '.': {
+                m_tokens.emplace_back(TokenType::STRUCT_ACCESS, std::string{}, m_line, m_column);
+                break;
+            }
             case '-': {
                 auto next = peek();
-                bool nextIsDigit = next.has_value() &&
+                const bool nextIsDigit = next.has_value() &&
                                    std::isdigit(static_cast<unsigned char>(next.value()));
 
                 if (nextIsDigit) {
@@ -205,8 +237,14 @@ std::vector<Token> tokenizer::tokenize() {
                 if (std::isalpha(static_cast<unsigned char>(c))) {
                     buf.clear();
                     buf += c;
-                    while (peek().has_value() && std::isalnum(static_cast<unsigned char>(peek().value()))) {
-                        buf += consume();
+
+                    while (peek().has_value()) {
+                        char p = peek().value();
+                        if (std::isalnum(static_cast<unsigned char>(p)) || p == '_' || p == '-') {
+                            buf += consume();
+                        } else {
+                            break;
+                        }
                     }
 
                     if (buf == "true") {

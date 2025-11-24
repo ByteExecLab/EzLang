@@ -12,8 +12,12 @@
 
 enum class TokenType: uint8_t {
     DUP, DROP, SWAP, OVER, NIP, TUCK,
-    PRINT, INT_LITERAL, STR_LITERAL, BOOL_LITERAL, IDENTIFIER, FLOAT_LITERAL,
-    CONST, LOAD_VARIABLE, STORE_VARIABLE, NIL_LITERAL,
+
+    // System
+    PRINT, INT_LITERAL, STR_LITERAL, BOOL_LITERAL, IDENTIFIER, FLOAT_LITERAL, NIL_LITERAL,
+
+    //
+    CONST, LOAD_VARIABLE, STORE_VARIABLE,
 
     // Logical
     EQUALS,NOT_EQUALS, LESS_THAN, LESS_THAN_EQUALS, GREATER_THAN, GREATER_THAN_EQUALS, ZERO_CHECK,
@@ -21,9 +25,24 @@ enum class TokenType: uint8_t {
 
     // Control
     IF, ELSE, WHILE, DO, FOR, END, ENDIF, CONTINUE, BREAK, RETURN,
+
+    // Maths
     ADD, SUB, MUL, DIV, MOD,
+
+    // Debug
     TRACE,
 
+    // Aggregates
+    ARRAY_START, ARRAY_END,
+    STRUCT_START, STRUCT_END,
+
+    // Arrays
+    ARRAY_LEN, ARRAY_GET, ARRAY_SET,
+
+    // Structs
+    STRUCT_GET, STRUCT_SET, STRUCT_ACCESS,
+
+    // Words
     WORD,
 };
 
@@ -226,6 +245,19 @@ inline std::string tokenTypeToString(const TokenType type) {
         {TokenType::GREATER_THAN, "GREATER_THAN"},
         {TokenType::GREATER_THAN_EQUALS, "GREATER_THAN_EQUALS"},
         {TokenType::ZERO_CHECK, "ZERO_CHECK"},
+
+        // Arrays & Structs
+        {TokenType::ARRAY_START, "ARRAY_START"},
+        {TokenType::ARRAY_END, "ARRAY_END"},
+        {TokenType::STRUCT_START, "STRUCT_START"},
+        {TokenType::STRUCT_END, "STRUCT_END"},
+
+        {TokenType::ARRAY_LEN,    "ARRAY_LEN"},
+        {TokenType::ARRAY_GET,    "ARRAY_GET"},
+        {TokenType::ARRAY_SET,    "ARRAY_SET"},
+        {TokenType::STRUCT_GET,   "STRUCT_GET"},
+        {TokenType::STRUCT_SET,   "STRUCT_SET"},
+        {TokenType::STRUCT_ACCESS,"STRUCT_ACCESS"},
 
         // Debug
         {TokenType::TRACE, "TRACE"},

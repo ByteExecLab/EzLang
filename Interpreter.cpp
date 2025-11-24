@@ -75,7 +75,20 @@ Interpreter::Interpreter(std::vector<Token> tokens, Stack stack, std::string sou
         // Utils
         {TokenType::PRINT, [this]() { executePrint(); }},
         {TokenType::TRACE, [this]() { executeTrace(); }},
-        {TokenType::WORD, [this]() { executeWordDefinition(); }}
+        {TokenType::WORD, [this]() { executeWordDefinition(); }},
+
+        // Arrays & Structs
+        {TokenType::ARRAY_START,  [this]() { executeArrayStart(); }},
+        {TokenType::ARRAY_END,    [this]() { executeArrayEnd(); }},
+        {TokenType::STRUCT_START, [this]() { executeStructStart(); }},
+        {TokenType::STRUCT_END,   [this]() { executeStructEnd(); }},
+
+        {TokenType::ARRAY_LEN,     [this]() { executeArrayLen(); }},
+        {TokenType::ARRAY_GET,     [this]() { executeArrayGet(); }},
+        {TokenType::ARRAY_SET,     [this]() { executeArraySet(); }},
+        {TokenType::STRUCT_GET,    [this]() { executeStructGet(); }},
+        {TokenType::STRUCT_SET,    [this]() { executeStructSet(); }},
+        {TokenType::STRUCT_ACCESS, [this]() { executeStructAccess(); }},
     };
 }
 
@@ -93,19 +106,29 @@ Interpreter::Interpreter(std::vector<Token> tokens, Stack stack, std::string sou
  * and to ensure the function does not modify the original variant.
  */
 void Interpreter::printVariant(const StackValue& value) {
-    std::visit([](auto&& arg) {
-        using T = std::decay_t<decltype(arg)>;
+    std::visit([]<typename T0>(T0&& arg) {
+        using T = std::decay_t<T0>;
 
         if constexpr (std::is_same_v<T, std::monostate>) {
             std::cout << "nil";
-        }
-        else if constexpr (std::is_same_v<T, bool>) {
+        } else if constexpr (std::is_same_v<T, int>) {
+            std::cout << arg;
+        } else if constexpr (std::is_same_v<T, double>) {
+            std::cout << arg;
+        } else if constexpr (std::is_same_v<T, std::string>) {
+            std::cout << '"' << arg << '"';
+        } else if constexpr (std::is_same_v<T, bool>) {
             std::cout << (arg ? "true" : "false");
-        }
-        else {
-            std::cout << arg << std::endl;
+        } else if constexpr (std::is_same_v<T, ArrayValue>) {
+            std::cout << "<Array len=" << arg.elements.size() << ">";
+        } else if constexpr (std::is_same_v<T, StructValue>) {
+            std::cout << "<Struct fields=" << arg.fields.size() << ">";
+        } else {
+            std::cout << "<unknown>";
         }
     }, value);
+
+    std::cout << std::endl;
 }
 
 /**
@@ -434,7 +457,9 @@ void Interpreter::executePrint() {
         throw std::runtime_error("[ERROR]: Stack underflow for print operation");
     }
 
-    printVariant(m_stack.pop());
+    const StackValue v = m_stack.pop();   // or peek() if you like
+    printVariant(v);
+    std::cout << std::endl;
 }
 
 /**
@@ -1159,6 +1184,240 @@ void Interpreter::executeNot() {
     m_stack.push(static_cast<int>(result));
 }
 
+void Interpreter::executeArrayStart() {
+    consume(TokenType::ARRAY_START, "Expected '['");
+    m_arrayMarks.push_back(m_stack.size());
+}
+
+void Interpreter::executeArrayEnd() {
+    consume(TokenType::ARRAY_END, "Expected ']'");
+
+    if (m_arrayMarks.empty()) {
+        throw std::runtime_error("[ERROR]: Unmatched ']' with no '['");
+    }
+
+    const size_t startSize = m_arrayMarks.back();
+    m_arrayMarks.pop_back();
+
+    if (m_stack.size() < startSize) {
+        throw std::runtime_error("[ERROR]: Internal: stack smaller than array start mark");
+    }
+
+    const size_t count = m_stack.size() - startSize;
+    std::vector<StackValue> elements;
+    elements.reserve(count);
+
+    // Pop values above the mark
+    for (size_t i = 0; i < count; ++i) {
+        elements.push_back(m_stack.pop());
+    }
+
+    // Reverse to restore left-to-right literal order
+    std::reverse(elements.begin(), elements.end());
+
+    ArrayValue arr{std::move(elements)};
+    m_stack.push(StackValue{arr});
+}
+
+void Interpreter::executeStructStart() {
+    consume(TokenType::STRUCT_START, "Expected '{'");
+    m_structMarks.push_back(m_stack.size());
+}
+
+void Interpreter::executeStructEnd() {
+    consume(TokenType::STRUCT_END, "Expected '}'");
+
+    if (m_structMarks.empty()) {
+        throw std::runtime_error("[ERROR]: Unmatched '}' with no '{'");
+    }
+
+    const size_t startSize = m_structMarks.back();
+    m_structMarks.pop_back();
+
+    if (m_stack.size() < startSize) {
+        throw std::runtime_error("[ERROR]: Internal: stack smaller than struct start mark");
+    }
+
+    const size_t count = m_stack.size() - startSize;
+
+    if (count % 2 != 0) {
+        throw std::runtime_error("[ERROR]: Struct literal expects key/value pairs (even number of stack items)");
+    }
+
+    StructValue obj;
+
+    // We pop value then key, in reverse of push order.
+    for (size_t i = 0; i < count / 2; ++i) {
+        StackValue value = m_stack.pop();
+        StackValue key   = m_stack.pop();
+
+        if (!std::holds_alternative<std::string>(key)) {
+            throw std::runtime_error("[ERROR]: Struct keys must be strings");
+        }
+
+        const std::string keyStr = std::get<std::string>(key);
+        obj.fields.emplace(std::move(keyStr), std::move(value));
+    }
+
+    // Order doesn't matter because it's a map.
+    m_stack.push(StackValue{obj});
+}
+
+void Interpreter::executeArrayLen() {
+    consume(TokenType::ARRAY_LEN, "[ERROR]: Expected array-len");
+
+    if (m_stack.empty()) {
+        throw std::runtime_error("[ERROR]: array-len: stack underflow");
+    }
+
+    StackValue v = m_stack.pop();
+
+    if (!std::holds_alternative<ArrayValue>(v)) {
+        throw std::runtime_error("[ERROR]: array-len: expected array on stack");
+    }
+
+    const auto &arr = std::get<ArrayValue>(v);
+    int len = static_cast<int>(arr.elements.size());
+
+    // push length back
+    m_stack.push(len);
+}
+
+void Interpreter::executeArrayGet() {
+    consume(TokenType::ARRAY_GET, "Expected 'array-get'");
+
+    if (m_stack.size() < 2) {
+        throw std::runtime_error("[ERROR]: array-get requires array and index");
+    }
+
+    const StackValue idxV  = m_stack.pop();
+    const StackValue arrV  = m_stack.pop();
+
+    const int idx = GetIntOrThrow(idxV);
+
+    if (!std::holds_alternative<ArrayValue>(arrV)) {
+        throw std::runtime_error("[ERROR]: array-get expects array under index");
+    }
+
+    const auto& arr = std::get<ArrayValue>(arrV);
+
+    if (idx < 0 || static_cast<size_t>(idx) >= arr.elements.size()) {
+        throw std::runtime_error("[ERROR]: array-get index out of range");
+    }
+
+    m_stack.push(arr.elements[static_cast<size_t>(idx)]);
+}
+
+
+ void Interpreter::executeArraySet() {
+    consume(TokenType::ARRAY_SET, "Expected 'array-set'");
+
+    if (m_stack.size() < 3) {
+        throw std::runtime_error("[ERROR]: array-set requires array, index, value");
+    }
+
+    StackValue valueV = m_stack.pop();
+    const StackValue idxV   = m_stack.pop();
+    const StackValue arrV   = m_stack.pop();
+
+    const int idx = GetIntOrThrow(idxV);
+
+    if (!std::holds_alternative<ArrayValue>(arrV)) {
+        throw std::runtime_error("[ERROR]: array-set expects array under index/value");
+    }
+
+    auto arr = std::get<ArrayValue>(arrV); // copy
+
+    if (idx < 0 || static_cast<size_t>(idx) >= arr.elements.size()) {
+        throw std::runtime_error("[ERROR]: array-set index out of range");
+    }
+
+    arr.elements[static_cast<size_t>(idx)] = std::move(valueV);
+
+    m_stack.push(StackValue{std::move(arr)});
+ }
+
+void Interpreter::executeStructGet() {
+    consume(TokenType::STRUCT_GET, "Expected 'struct-get'");
+
+    if (m_stack.size() < 2) {
+        throw std::runtime_error("[ERROR]: struct-get requires struct and key");
+    }
+
+    StackValue keyV = m_stack.pop();
+    StackValue objV = m_stack.pop();
+
+    if (!std::holds_alternative<std::string>(keyV)) {
+        throw std::runtime_error("[ERROR]: struct-get expects string key");
+    }
+    if (!std::holds_alternative<StructValue>(objV)) {
+        throw std::runtime_error("[ERROR]: struct-get expects struct under key");
+    }
+
+    const std::string& key = std::get<std::string>(keyV);
+    const auto& obj = std::get<StructValue>(objV);
+
+    auto it = obj.fields.find(key);
+    if (it == obj.fields.end()) {
+        m_stack.push(StackValue{std::monostate{}});
+    } else {
+        m_stack.push(it->second);
+    }
+}
+
+void Interpreter::executeStructSet() {
+    consume(TokenType::STRUCT_SET, "Expected 'struct-set'");
+
+    if (m_stack.size() < 3) {
+        throw std::runtime_error("[ERROR]: struct-set requires struct, key, value");
+    }
+
+    StackValue valueV = m_stack.pop();
+    StackValue keyV   = m_stack.pop();
+    StackValue objV   = m_stack.pop();
+
+    if (!std::holds_alternative<std::string>(keyV)) {
+        throw std::runtime_error("[ERROR]: struct-set expects string key");
+    }
+    if (!std::holds_alternative<StructValue>(objV)) {
+        throw std::runtime_error("[ERROR]: struct-set expects struct under key/value");
+    }
+
+    std::string key = std::get<std::string>(keyV);
+    StructValue obj = std::get<StructValue>(objV); // copy
+
+    obj.fields[std::move(key)] = std::move(valueV);
+
+    m_stack.push(StackValue{std::move(obj)});
+}
+
+void Interpreter::executeStructAccess() {
+    consume(TokenType::STRUCT_ACCESS, "Expected '.'");
+
+    if (m_stack.size() < 2) {
+        throw std::runtime_error("[ERROR]: '.' requires struct and key on stack");
+    }
+
+    StackValue keyV = m_stack.pop();
+    StackValue objV = m_stack.pop();
+
+    if (!std::holds_alternative<std::string>(keyV)) {
+        throw std::runtime_error("[ERROR]: '.' expects string key on top");
+    }
+    if (!std::holds_alternative<StructValue>(objV)) {
+        throw std::runtime_error("[ERROR]: '.' expects struct under key");
+    }
+
+    const std::string& key = std::get<std::string>(keyV);
+    const auto& obj = std::get<StructValue>(objV);
+
+    auto it = obj.fields.find(key);
+    if (it == obj.fields.end()) {
+        m_stack.push(StackValue{std::monostate{}});
+    } else {
+        m_stack.push(it->second);
+    }
+}
 
 /**
  * Executes the operation to store a variable into memory.

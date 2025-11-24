@@ -121,6 +121,7 @@ public:
      * @param tokens A vector of Token objects representing the program to be
      * interpreted. The constructor takes ownership of this vector.
      * @param stack
+     * @param source
      */
     explicit Interpreter(std::vector<Token> tokens, Stack stack, std::string source);
 
@@ -872,6 +873,19 @@ private:
 
     void executeNot();
 
+    void executeArrayStart();
+    void executeArrayEnd();
+    void executeStructStart();
+    void executeStructEnd();
+    void executeArrayLen();
+    void executeArrayGet();
+    void executeArraySet();
+
+    void executeStructGet();
+    void executeStructSet();
+    void executeStructAccess(); // '.' alias for struct-get
+
+
     /**
      * Checks if the given StackValue is of a specific type.
      *
@@ -1254,6 +1268,10 @@ private:
      * @see printErrorContext()
      */
     size_t m_errorPos = static_cast<size_t>(-1);
+
+    // For array and struct literals
+    std::vector<size_t> m_arrayMarks;
+    std::vector<size_t> m_structMarks;
 };
 
 #endif //LEXER_H
