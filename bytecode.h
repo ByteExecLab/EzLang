@@ -62,4 +62,26 @@ struct BytecodeProgram {
     std::vector<StackValue>  constants;  // for strings/floats later
 };
 
+// Optional: stringify opcodes for debugging / errors
+inline const char* toString(OpCode op) {
+    switch (op) {
+        case OpCode::PUSH_INT:      return "PUSH_INT";
+        case OpCode::PUSH_FLOAT:    return "PUSH_FLOAT";
+        case OpCode::PUSH_STRING:   return "PUSH_STRING";
+        case OpCode::PUSH_BOOL:     return "PUSH_BOOL";
+        case OpCode::ADD:           return "ADD";
+        case OpCode::SUB:           return "SUB";
+        case OpCode::MUL:           return "MUL";
+        case OpCode::DIV:           return "DIV";
+        case OpCode::MOD:           return "MOD";
+        case OpCode::PRINT:         return "PRINT";
+        case OpCode::JUMP:          return "JUMP";
+        case OpCode::JUMP_IF_FALSE: return "JUMP_IF_FALSE";
+        case OpCode::CALL:          return "CALL";
+        case OpCode::RET:           return "RET";
+        case OpCode::HLT:           return "HLT";
+    }
+    return "<unknown-opcode>";
+}
+
 #endif //EZLANG_BYTECODE_H
