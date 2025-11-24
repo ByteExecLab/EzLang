@@ -5,9 +5,11 @@
 #include <iomanip>
 #include <filesystem>
 
+#include "compiler.h"
 #include "Interpreter.h"
 #include "tokenizer.h"
 #include "Loader.h"
+#include "vm.h"
 
 void dumpTokensFn(const std::vector<Token>& tokens) {
     std::cout << "==== TOKEN DUMP ====\n\n";
@@ -53,11 +55,13 @@ void dumpTokensFn(const std::vector<Token>& tokens) {
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " [--dump-tokens] <source-file>\n";
+        std::cerr << "Usage: " << argv[0] << " [--dump-tokens] [--vm] <source-file>\n";
         return 1;
     }
 
     bool dumpTokens = false;
+    bool useVm = false;
+
     std::string filename;
 
     // Very simple arg parsing:
@@ -65,7 +69,11 @@ int main(int argc, char** argv) {
         std::string arg = argv[i];
         if (arg == "--dump-tokens") {
             dumpTokens = true;
-        } else {
+        }
+        else if (arg == "--vm") {
+            useVm = true;
+        }
+        else {
             filename = arg;
         }
     }
@@ -85,6 +93,15 @@ int main(int argc, char** argv) {
 
     if (dumpTokens) {
         dumpTokensFn(tokens);
+        return 0;
+    }
+
+    if (useVm) {
+        compiler compiler{};
+        auto prog = compiler.compileToBytecode(tokens);
+
+        VM vm(std::move(prog));
+        vm.run();
         return 0;
     }
 
