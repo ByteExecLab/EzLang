@@ -6,9 +6,15 @@
 #include <utility>
 #include <variant>
 #include <type_traits>
+#include <iomanip> // for std::setw, std::left
+
+#include "Utils.h"
 
 Interpreter::Interpreter(std::vector<Token> tokens, Stack stack, std::string source)
     : m_source(std::move(source)), m_stack(std::move(stack)), m_tokens(std::move(tokens)), m_memory(1024) {
+
+    // Global frame
+    m_frames.emplace_back();
 
     executionMap = {
         // Stack operations
@@ -92,99 +98,21 @@ Interpreter::Interpreter(std::vector<Token> tokens, Stack stack, std::string sou
     };
 }
 
-
-/**
- * Prints the value held by a std::variant to the standard output stream (std::cout).
- *
- * This function uses std::visit to determine the actual type of the value
- * stored within the variant and then prints that value accordingly.  It handles
- * both 'int' and 'std::string' types and could be extended to handle other
- * types added to the variant.
- *
- * @param value A const reference to the std::variant whose value is to be printed.
- * The variant is passed by const reference to avoid unnecessary copying
- * and to ensure the function does not modify the original variant.
- */
 void Interpreter::printVariant(const StackValue& value) {
-    std::visit([]<typename T0>(T0&& arg) {
-        using T = std::decay_t<T0>;
-
-        if constexpr (std::is_same_v<T, std::monostate>) {
-            std::cout << "nil";
-        } else if constexpr (std::is_same_v<T, int>) {
-            std::cout << arg;
-        } else if constexpr (std::is_same_v<T, double>) {
-            std::cout << arg;
-        } else if constexpr (std::is_same_v<T, std::string>) {
-            std::cout << '"' << arg << '"';
-        } else if constexpr (std::is_same_v<T, bool>) {
-            std::cout << (arg ? "true" : "false");
-        } else if constexpr (std::is_same_v<T, ArrayValue>) {
-            std::cout << "<Array len=" << arg.elements.size() << ">";
-        } else if constexpr (std::is_same_v<T, StructValue>) {
-            std::cout << "<Struct fields=" << arg.fields.size() << ">";
-        } else {
-            std::cout << "<unknown>";
-        }
-    }, value);
-
-    std::cout << std::endl;
+    std::visit(Utils::PrintVisitor{}, value);
+    std::cout << "";
 }
 
-/**
- * Retrieves the current token being processed in the token sequence.
- *
- * This function accesses a specific token from the stored sequence
- * of tokens based on the current position index. It ensures the return
- * of the token at the index specified by the internal position tracker.
- * The function does not modify the state of the object and guarantees
- * a valid token is returned as it uses bounds-checked access.
- *
- * @return The current token from the sequence, accessed at the position
- * determined by the internal index tracker.
- */
 Token Interpreter::getCurrentToken() const {
     return m_tokens.at(m_pos);
 }
 
-/**
- * Checks whether a std::variant holds a value of a specific type.
- *
- * This function is a template, allowing it to check if a variant holds
- * any of the types it was declared to hold. It uses std::holds_alternative
- * to perform the type check.
- *
- * @tparam T The type to check for within the variant.  This is a template
- * parameter, so the caller specifies the type they are interested in.
- * The std::variant can potentially hold.  This is deduced from the
- * variant itself.
- * @param value A const reference to the std::variant to check.  Passing by
- * const reference avoids unnecessary copying and prevents
- * modification of the original variant.
- * @return true if the variant holds a value of type T, false otherwise.
- */
+
 template<typename T>
 bool Interpreter::isOfType(StackValue &value) {
     return std::holds_alternative<T>(value);
 }
 
-
-/**
- * Retrieves the integer value from a variant or throws an exception if the variant
- * does not hold an integer.
- *
- * This function attempts to extract the integer value from the provided variant.
- * If the variant holds an integer, that integer is returned. If the variant
- * holds a different type (e.g., a string), a std::runtime_error exception is
- * thrown with a specific error message. This ensures that the program handles
- * unexpected types gracefully.
- *
- * @param value A const reference to the std::variant from which to retrieve the
- * integer value.  Passing by const reference avoids unnecessary copying
- * and prevents modification of the original variant.
- * @return The integer value held within the variant.
- * @throws std::runtime_error if the variant does not hold an integer value.
- */
 int Interpreter::GetIntOrThrow(const StackValue &value) {
     if (std::holds_alternative<int>(value)) {
         return std::get<int>(value);
@@ -357,23 +285,6 @@ void Interpreter::ensureStackSize(const size_t needed, const std::string &opName
      }
 }
 
-
-/**
- * Retrieves the string value from a variant or throws an exception if the variant
- * does not hold a string.
- *
- * This function attempts to extract the string value from the provided variant.
- * If the variant holds a string, that string is returned. If the variant
- * holds a different type (e.g., an integer), an std::runtime_error exception is
- * thrown with a specific error message. This ensures that the program handles
- * unexpected types gracefully.
- *
- * @param value A const reference to the std::variant from which to retrieve the
- * string value. Passing by const reference avoids unnecessary copying
- * and prevents modification of the original variant.
- * @return The string value held within the variant.
- * @throws std::runtime_error if the variant does not hold a string value.
- */
 std::string Interpreter::GetStringOrThrow(const StackValue &value) {
     if (std::holds_alternative<std::string>(value)) {
         return std::get<std::string>(value);
@@ -381,19 +292,6 @@ std::string Interpreter::GetStringOrThrow(const StackValue &value) {
     throw std::runtime_error("[ERROR]: Expected string value on stack");
 }
 
-/**
- * Retrieves the current token and advances the interpreter's position to the next token.
- *
- * This function retrieves the token at the interpreter's current position
- * within the token vector.  It then increments the position, effectively
- * "consuming" the token.  If the current position is already at or beyond the
- * end of the token vector, an exception is thrown, indicating an unexpected
- * end of input.
- *
- * @return The token at the interpreter's current position before it was advanced.
- * @throws std::runtime_error if the current position is at or beyond the end of
- * the token vector, indicating an attempt to read past the end of the input.
- */
 Token Interpreter::consume() {
     if (m_pos >= m_tokens.size()) {
         throw std::runtime_error("[ERROR]: Unexpected end of tokens");
@@ -415,24 +313,6 @@ Token Interpreter::consume(const TokenType tokenType, const std::string &errorMe
     return token;
 }
 
-
-/**
- * Peeks at a token ahead of the current position without consuming it.
- *
- * This function allows the interpreter to look at a token in the token stream
- * without advancing its current position.  It's useful for lookahead operations,
- * such as checking the next token to determine how to handle the current one.
- *
- * @param offset The offset from the current position.  An offset of 0 returns
- * the current token, an offset of 1 returns the next token, and
- * so on.  Must be a non-negative value.
- * @return  A std::optional<Token> representing the token at the specified
- * offset.  If the offset is within the bounds of the token vector,
- * the function returns the token wrapped in a std::optional.
- * If the offset is beyond the end of the token vector, the function
- * returns std::nullptr to indicate that there is no token at that
- * position.
- */
 std::optional<Token> Interpreter::peek(const size_t offset) {
     if (m_pos + offset >= m_tokens.size()) {
         return std::nullopt;
@@ -441,16 +321,6 @@ std::optional<Token> Interpreter::peek(const size_t offset) {
     return m_tokens.at(m_pos + offset);
 }
 
-/**
- * Executes the 'print' operation, which prints the value on the top of the stack
- * to the standard output (stdout).
- *
- * This function retrieves the value from the top of the stack without removing it
- * (using `peek`), and then prints that value to the console using the
- * `printVariant` function. It assumes that the current token is the 'print'
- * instruction.  It then consumes the 'print' token.
- *
- */
 void Interpreter::executePrint() {
     consume(TokenType::PRINT, "[ERROR]: Expected PRINT");
     if (m_stack.empty()) {
@@ -462,56 +332,20 @@ void Interpreter::executePrint() {
     std::cout << std::endl;
 }
 
-/**
- * Executes a 'push' operation, pushing a value onto the stack.
- *
- * This function retrieves the value associated with the current token
- * (which is assumed to be a value to be pushed). It then consumes the
- * current token.  If the next token is also a 'PUSH' token, it
- * assumes that the current token's value should be pushed onto the
- * stack and then consumes the next 'PUSH' token.
- *
- */
 void Interpreter::executePush(const StackValue &value) {
     m_stack.push(value);
 }
 
-/**
- * Executes a string literal operation in the interpreter.
- *
- * This function processes a token of type `TokenType::STR_LITERAL`, ensuring
- * its presence in the input stream. Upon successful consumption, the function
- * extracts the literal value and pushes it onto the interpreter's stack
- * for further execution or evaluation.
- *
- * Any absence of a string literal token in the expected position triggers
- * an error with the provided message, halting execution.
- */
 void Interpreter::executeStrLiteral() {
     const auto [type, value, line, col] =
         consume(TokenType::STR_LITERAL, "[ERROR]: Expected string literal");
     m_stack.push(value);
 }
 
-/**
- * Executes the processing of an integer literal in the interpreter.
- *
- * This function consumes a token of type TokenType::INT_LITERAL, ensuring that it matches
- * the expected type. If the token does not match, an error message is provided. The value
- * of the integer literal is then pushed onto the interpreter's stack for further processing.
- *
- * This operation is critical for handling integer literals during interpretation of code,
- * enabling later operations to access or manipulate the stored value.
- *
- * The function interacts closely with the token stream by consuming the token and also
- * the stack where the value is stored after processing.
- */
 void Interpreter::executeIntLiteral() {
     const auto [type, value, line, col] = consume(TokenType::INT_LITERAL, "[ERROR]: Expected integer literal");
     m_stack.push(value);
 }
-
-#include <iomanip> // for std::setw, std::left
 
 void Interpreter::executeTrace() {
     consume(TokenType::TRACE, "Expected Trace");
@@ -553,18 +387,6 @@ void Interpreter::executeContinue() {
     consume(TokenType::CONTINUE, "[ERROR]: Expected CONTINUE");
 }
 
-
-/**
- * Executes the "over" operation on the stack managed by the interpreter.
- *
- * The "over" operation duplicates the second-to-top value on the stack,
- * ensuring that the current top value remains in place. This function
- * will throw a runtime error if there are fewer than two elements
- * on the stack, as the operation cannot be completed in such cases.
- *
- * @throws std::runtime_error If the stack contains fewer than two elements,
- * indicating a stack underflow condition.
- */
 void Interpreter::executeOver() {
     if (m_stack.size() < 2) {
         throw std::runtime_error("[ERROR]: Stack underflow for over operation");
@@ -579,17 +401,6 @@ void Interpreter::executeOver() {
     m_stack.push(second_value);
 }
 
-/**
- * Executes the "nip" operation on the stack, removing the second-to-top value
- * while keeping the top value.
- *
- * This function operates on the stack referenced by the `Interpreter`. It first
- * verifies that the stack has at least two elements; if not, a runtime_error
- * is thrown to indicate stack underflow. The top value is preserved, the second
- * value is removed, and then the top value is pushed back onto the stack.
- *
- * @throws std::runtime_error Thrown if the stack contains fewer than two elements.
- */
 void Interpreter::executeNip() {
     if (m_stack.size() < 2) {
         throw std::runtime_error("[ERROR]: Stack underflow for nip operation");
@@ -607,22 +418,6 @@ void Interpreter::executeNip() {
     m_stack.push(top_value);
 }
 
-/**
- * Executes a binary arithmetic operation (addition, subtraction, multiplication,
- * division, or modulo) on the top two values on the stack.
- *
- * This function performs the specified arithmetic operation on the two values
- * at the top of the stack. It first consumes the operator token. It then checks
- * for stack underflow (if there are fewer than two values on the stack).  It
- * pops the two operands from the stack, performs the operation, and pushes the
- * result back onto the stack.  It uses the GetIntOrThrow helper function to
- * ensure that the operands are integers.
- *
- * @param tokenType The TokenType representing the binary operation to perform.
- * Must be one of TokenType::ADD, TokenType::SUB, TokenType::MUL,
- * TokenType::DIV, or TokenType::MOD.
- *
- */
 void Interpreter::executeBinary(const TokenType tokenType) {
     if (m_stack.size() < 2) {
         throw std::runtime_error("[ERROR]: Stack underflow for binary operation");
@@ -730,8 +525,8 @@ void Interpreter::executeBinary(const TokenType tokenType) {
 
             // Int / Int = Int, else double
             if (bothInt(l_value, r_value)) {
-                int ia = std::get<int>(l_value);
-                int ib = std::get<int>(r_value);
+                const int ia = std::get<int>(l_value);
+                const int ib = std::get<int>(r_value);
 
                 result = ia / ib; // Integer division
             } else {
@@ -750,8 +545,8 @@ void Interpreter::executeBinary(const TokenType tokenType) {
                 throw std::runtime_error("[ERROR]: Modulo only supported for INT types");
             }
 
-            int a = std::get<int>(l_value);
-            int b = std::get<int>(r_value);
+            const int a = std::get<int>(l_value);
+            const int b = std::get<int>(r_value);
 
             if (b == 0) {
                 throw std::runtime_error("[ERROR]: Modulo by zero");
@@ -761,27 +556,13 @@ void Interpreter::executeBinary(const TokenType tokenType) {
             break;
         }
         default: {
-            throw std::runtime_error("[ERROR]: Unknown binary token");
+            //
         }
     }
 
     m_stack.push(result);
 }
 
-/**
- * Executes a logical operation on the top two values on the stack.
- *
- * This function pops two values from the stack, performs the specified logical
- * operation (equality, less than, greater than, etc.), and pushes the boolean
- * result (represented as 1 for true, 0 for false) back onto the stack.
- *
- * @param op
- * Must be one of TokenType::EQUALS, TokenType::LESS_THAN,
- * TokenType::GREATER_THAN, TokenType::LESS_THAN_EQUALS,
- * TokenType::GREATER_THAN_EQUALS, or TokenType::NOT_EQUALS.
- *
- * @throws std::runtime_error if the stack contains fewer th two elements.
- */
 void Interpreter::executeLogical(const TokenType op) {
     if (m_stack.size() < 2) {
         throw std::runtime_error("[ERROR]: Stack underflow for logical operation");
@@ -878,14 +659,6 @@ void Interpreter::executeLogical(const TokenType op) {
     m_stack.push(result ? 1 : 0);
 }
 
-/*
- * Executes an IF control flow statement.
- *
- * This function pops a condition from the stacks. If the condition is true (non-zero),
- * it executes the code within the IF block.  It parses the tokens to find the
- * boundaries of the IF block (and optionally an ELSE block) and then creates
- * a new Interpreter to execute the appropriate branch.
- */
 void Interpreter::executeIf() {
     const size_t ifIndex = m_pos; // index of IF
 
@@ -919,28 +692,6 @@ void Interpreter::executeIf() {
 
 }
 
-/**
- * Executes a WHILE-DO loop based on a tokenized input sequence.
- *
- * This method processes a WHILE-DO block by parsing the condition and body tokens from the input sequence,
- * evaluating the condition, and executing the body repeatedly as long as the condition evaluates to true.
- * It handles the separation of tokens into condition and body blocks and ensures the correct flow of execution.
- *
- * - A WHILE-DO block begins with a WHILE token, followed by a condition block, a DO token, a body block,
- *   and ends with an END token.
- * - The condition is evaluated by creating a temporary Interpreter instance to process the condition tokens.
- *   The result of the condition evaluation is retrieved from the stack and checked.
- * - If the condition evaluates to true, another temporary Interpreter instance is used to process the body tokens.
- * - This continues in a loop until the condition evaluates to false.
- *
- * Exceptions:
- * - Throws std::runtime_error if the END token is missing after the WHILE-DO block.
- * - Throws std::runtime_error if a stack underflow occurs when attempting to retrieve the condition result.
- *
- * Preconditions:
- * - The token sequence provided to the Interpreter must contain a valid WHILE-DO block structure.
- * - The execution stack (m_stack) must be initialized and available for performing operations.
- */
 void Interpreter::executeWhile() {
     consume(TokenType::WHILE, "[ERROR]: Expected WHILE operation");
 
@@ -995,26 +746,6 @@ void Interpreter::executeWhile() {
     }
 }
 
-
-/**
- * Defines a new variable in the interpreter's symbol table.
- *
- * This method processes the token at the current position to define a variable
- * name and assigns it a new memory address within the interpreter's memory model.
- * It validates that the variable has not been previously defined and associates
- * the value at the top of the stack with the allocated memory address. The stack
- * value is then written to memory.
- *
- * The process includes:
- * - Consuming the token stream to process the variable definition.
- * - Validating the presence of an identifier token.
- * - Checking for name collisions with previously defined variables.
- * - Incrementing the internal memory address counter for the next variable.
- * - Popping the stack to retrieve the value and storing it in memory.
- *
- * @throws std::runtime_error If the next token is not an identifier, or if the variable
- * name has already been defined.
- */
 void Interpreter::executeDefineVariable() {
     consume(TokenType::CONST, "Expected const before IDENTIFIER"); // Consume CONST token
 
@@ -1077,23 +808,34 @@ void Interpreter::executeIdentifier() {
     const Token& identTok = m_tokens[m_pos];
     const std::string name = std::get<std::string>(identTok.value);
 
+    // Check for local variable
+    if (!m_frames.empty()) {
+        auto &locs = m_frames.back().locals;
+        if (auto it = locs.find(name); it != locs.end()) {
+            // load local onto stack
+            m_stack.push(it->second);
+            ++m_pos;
+            return;
+        }
+    }
+
     // variable cases...
-    auto next = peek(1);
+    const auto next = peek(1);
     if (next && next->type == TokenType::LOAD_VARIABLE) { /* ... */ }
     if (next && next->type == TokenType::STORE_VARIABLE) { /* ... */ }
 
     // user-defined word:
-    auto it = m_words.find(name);
+    const auto it = m_words.find(name);
     if (it == m_words.end()) {
         throw std::runtime_error("[ERROR]: Unknown word '" + name + "'");
     }
 
-    WordDef& def = it->second;
+    auto&[body, arity] = it->second;
 
-    if (def.arity > 0 && static_cast<int>(m_stack.size()) < def.arity) {
+    if (arity > 0 && static_cast<int>(m_stack.size()) < arity) {
         throw std::runtime_error(
             "[ERROR]: Word '" + name + "' expects " +
-            std::to_string(def.arity) + " argument(s) on the stack, but only " +
+            std::to_string(arity) + " argument(s) on the stack, but only " +
             std::to_string(m_stack.size()) + " present"
         );
     }
@@ -1101,7 +843,10 @@ void Interpreter::executeIdentifier() {
     // consume the identifier token
     ++m_pos;
 
-    ControlSignal sig = executeBlock(def.body);
+    // New frame for this call
+    pushFrame();
+    const ControlSignal sig = executeBlock(body);
+    popFrame(); // guaranteed by normal flow – if you want exception safety, use RAII
 
     if (sig == ControlSignal::Return) {
         // swallow return at word boundary
@@ -1126,17 +871,6 @@ void Interpreter::executeReturn() {
     m_controlSignal = ControlSignal::Return;
 }
 
-
-/**
- * Loads a variable value into the stack from memory using its name.
- *
- * This function retrieves a variable by its name from a token. If the variable
- * exists in the variable registry, its memory address is obtained, and its
- * value is read from memory. The value is then pushed onto the stack for further
- * use in the interpreter. If the variable does not exist, an exception is thrown.
- *
- * @throw std::runtime_error If the variable is not defined.
- */
 void Interpreter::executeLoadVariable() {
     const auto variableName = std::get<std::string>(m_tokens[m_pos].value);
     consume(TokenType::IDENTIFIER, "Expected IDENTIFIER before @"); // consume IDENTIFIER
@@ -1420,29 +1154,6 @@ void Interpreter::executeStructAccess() {
     }
 }
 
-/**
- * Executes the operation to store a variable into memory.
- *
- * This function retrieves a variable's identifier from the token stream, verifies
- * that the variable exists in the current context, and writes a value from the
- * stack to the memory address associated with the variable. It ensures that the
- * stack and variable store contain the required elements to correctly perform
- * the operation. If a variable is undefined or if the stack is empty, an exception
- * is thrown to indicate the respective error.
- *
- * Exception cases:
- * - Throws std::runtime_error if the stack is empty when attempting to retrieve a value.
- * - Throws std::runtime_error if the variable is not defined in the current context.
- *
- * @throws std::runtime_error If the stack is empty, resulting in a stack underflow,
- * or if the specified variable is not defined.
- *
- * Operation:
- * - Consumes an IDENTIFIER token from the token stream expected before the store operation.
- * - Checks the variable name against the variable map to ensure its existence.
- * - Pops the top value from the stack, then writes the value to the variable's associated memory address.
- * - Consumes the STORE_VARIABLE token to complete the operation.
- */
 void Interpreter::executeStoreVariable() {
     if (m_stack.empty()) {
         throw std::runtime_error("Stack underflow for variable store");
@@ -1458,12 +1169,45 @@ void Interpreter::executeStoreVariable() {
         m_memory.write(address, value);
     }
     else {
-        throw std::runtime_error("Variable not defined");
+        throw std::runtime_error("[INTERPRETER][ERROR]: Variable not defined");
     }
 
-    consume(TokenType::STORE_VARIABLE, "Expected ! after IDENTIFIER. Got: " + tokenTypeToString(m_tokens[m_pos].type)); // consume END
+    consume(TokenType::STORE_VARIABLE, "[INTERPRETER][ERROR]: Expected ! after IDENTIFIER. Got: " + tokenTypeToString(m_tokens[m_pos].type)); // consume END
 }
 
+void Interpreter::executeLet() {
+    consume(TokenType::LET, "[INTERPRETER][ERROR]: Expected 'let'");
+
+    const Token nameTok = consume(TokenType::IDENTIFIER, "[INTERPRETER][ERROR]: Expected identifier name after 'let'");
+    const std::string name = std::get<std::string>(nameTok.value);
+
+    if (m_stack.empty()) {
+        throw std::runtime_error("[INTERPRETER][ERROR]: 'let " + name + "': Stack underflow");
+    }
+
+    const StackValue value = m_stack.pop();
+    currentFrame().locals[name] = value;
+}
+
+void Interpreter::executeSet() {
+    consume(TokenType::SET, "[INTERPRETER][ERROR]: Expected 'set'");
+
+    const Token nameTok = consume(TokenType::IDENTIFIER, "[INTERPRETER][ERROR]: Expected identifier name after 'set'");
+    const std::string name = std::get<std::string>(nameTok.value);
+
+    auto &locals = currentFrame().locals;
+    const auto it  = locals.find(name);
+    if (it == locals.end()) {
+        throw std::runtime_error("[INTERPRETER][ERROR]: 'set " + name + "': local not defined in this frame");
+    }
+
+    if (m_stack.empty()) {
+        throw std::runtime_error("[INTERPRETER][ERROR]: 'set " + name + "': Stack underflow");
+    }
+
+    const StackValue value = m_stack.pop();
+    it->second = value;
+}
 
 ControlSignal Interpreter::executeBlock(const std::vector<Token> &block) {
     const auto oldTokens = m_tokens;
@@ -1532,6 +1276,26 @@ std::vector<Token> Interpreter::collectUntil(const TokenType endType) {
     }
 
     return out;
+}
+
+Frame &Interpreter::currentFrame() {
+    if (m_frames.empty()) {
+        throw std::runtime_error("[ERROR]: No active frame");
+    }
+
+    return m_frames.back();
+}
+
+void Interpreter::pushFrame() {
+    m_frames.emplace_back();
+}
+
+void Interpreter::popFrame() {
+    if (m_frames.empty()) {
+        throw std::runtime_error("[ERROR]: Frame stack underflow");
+    }
+
+    m_frames.pop_back();
 }
 
 std::pair<std::vector<Token>, std::vector<Token>> Interpreter::collectIfElseEndif(size_t ifIndex) {
@@ -1639,15 +1403,6 @@ std::vector<Token> Interpreter::collectBlockUntilEnd() {
     throw std::runtime_error("[ERROR]: Unbalanced block: missing END before end of input");
 }
 
-
-/**
- * Executes the ZERO_CHECK operation.
- *
- * This function pops the top value from the stack, checks if it is equal to zero,
- * and pushes the boolean result (1 for true, 0 for false) back onto the stack.
- *
- * @throws std::runtime_error if the stack is empty.
- */
 void Interpreter::executeZeroCheck() {
     // Consume the ZERO_CHECK token itself
     consume(TokenType::ZERO_CHECK, "[ERROR]: Expected ?");
@@ -1700,10 +1455,18 @@ ControlSignal Interpreter::executeSingleToken() {
             executeNot();
             return ControlSignal::None;
         }
+        // Locals
+        case TokenType::LET: {
+            executeLet();
+            return ControlSignal::None;
+        }
+        case TokenType::SET: {
+            executeSet();
+            return ControlSignal::None;
+        }
         default: {
             // everything else via executionMap
-            auto it = executionMap.find(type);
-            if (it != executionMap.end()) {
+            if (const auto it = executionMap.find(type); it != executionMap.end()) {
                 m_controlSignal = ControlSignal::None;
                 it->second();            // handlers themselves call consume(TokenType::X, ...)
                 return m_controlSignal;
@@ -1714,23 +1477,6 @@ ControlSignal Interpreter::executeSingleToken() {
     throw std::runtime_error("[ERROR]: Unknown token type: " + tokenTypeToString(type));
 }
 
-
-/**
- * Executes the sequence of tokens provided to the Interpreter.
- *
- * This function is the main control loop of the interpreter. It iterates
- * through the vector of tokens, fetching each token and dispatching
- * to the appropriate function to handle the token's associated operation.
- * The dispatching is done using a map that associates each TokenType
- * with its corresponding execution function.  This allows for a clean
- * and extensible way to handle different operations.
- *
- * The execution loop continues until all tokens in the input have been
- * processed.  Error handling is included to catch and report any runtime
- * exceptions that occur during the execution of a token (e.g., stack
- * underflow, invalid operations).
- *
- */
 void Interpreter::execute() {
     while (m_pos < m_tokens.size()) {
         const Token& tok = m_tokens[m_pos];

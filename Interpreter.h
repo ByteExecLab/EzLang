@@ -109,6 +109,11 @@ struct WordDef {
     int arity = 0; // Number of stack arguments required
 };
 
+struct Frame {
+    // Local variables in this call frame
+    std::unordered_map<std::string, StackValue> locals;
+};
+
 class Interpreter {
 public:
     /**
@@ -311,6 +316,74 @@ private:
      *
      */
     std::vector<Token> collectUntil(TokenType endType);
+
+    /**
+     * @brief Retrieves the active call frame of the interpreter.
+     *
+     * The `currentFrame` method provides access to the most recent call frame in the interpreter's stack.
+     * This frame contains the local context for the currently executing function or block of code.
+     *
+     * ### Behavior
+     * - If the call frame stack is empty (i.e., there are no active call frames),
+     *   this method will throw a runtime error to signal that no valid frame is available.
+     * - Otherwise, it returns a reference to the topmost frame, representing the execution context
+     *   at that point in time.
+     *
+     * ### Error Conditions
+     * Throws:
+     * - `std::runtime_error`: If the interpreter stack contains no frames.
+     *
+     * ### Related Concepts
+     * The call frame stack is critical to resolving variables and managing execution flow within the interpreter.
+     * This method plays a central role in accessing and manipulating the current execution state.
+     */
+    Frame& currentFrame();
+
+    /**
+     * @brief Pushes a new frame onto the call stack.
+     *
+     * This method adds a new execution frame to the interpreter's stack of active
+     * contexts. An execution frame represents the state associated with a specific
+     * function or block scope, including local variables and execution metadata.
+     *
+     * Frames are necessary for maintaining the correct execution and variable scope
+     * during nested function calls or block evaluations. Each new invocation of
+     * a function or block pushes a fresh frame, isolating its evaluation context
+     * from others.
+     *
+     * ### Context Management
+     * - Pushing a frame is typically followed by initialization of local variables,
+     *   arguments, or other necessary data for the new scope.
+     * - Frames are removed in the reverse order of their insertion, maintaining a
+     *   last-in, first-out (LIFO) structure.
+     *
+     * ### Related Functions
+     * @see Interpreter::popFrame()
+     * @see Interpreter::currentFrame()
+     * @see Interpreter::getVariable()
+     */
+    void pushFrame();
+
+    /**
+     * @brief Removes the top frame from the call stack of the interpreter.
+     *
+     * The `popFrame` method is used to manage the call stack within the interpreter.
+     * It removes the most recently added frame, effectively returning control
+     * to the previous execution context. This function is typically invoked
+     * when exiting a function or scope within the interpreted program.
+     *
+     * ### Error Conditions
+     * If the call stack (frame stack) is already empty when `popFrame` is called,
+     * the method throws a runtime error with the message:
+     * `[ERROR]: Frame stack underflow`.
+     *
+     * ### Context of Use
+     * The frame stack is a critical component of the interpreter's state,
+     * representing the execution contexts of functions or scopes that are
+     * currently active. Proper management of this stack ensures that control
+     * flow and variable scoping within the interpreter operate correctly.
+     */
+    void popFrame();
 
     /**
      * @brief Collects and separates the token blocks for an IF/ELSE/ENDIF control structure.
@@ -963,6 +1036,61 @@ private:
      * or the required tokens do not follow the expected sequence.
      */
     void executeStoreVariable();
+
+    /**
+     * @brief Executes the `let` statement in the interpreter, creating or updating a local variable.
+     *
+     * The `executeLet` method processes the `let` keyword in the language, which declares a new variable
+     * or updates the value of an existing one in the current frame's local variable scope. This method
+     * consumes the `let` token, extracts the variable's name, and assigns it the top value from the
+     * operand stack.
+     *
+     * ### Behavior and Constraints
+     * - **Token Expectations**: The method expects a valid `TokenType::LET` followed by an
+     *   `TokenType::IDENTIFIER`, representing the variable name.
+     * - **Stack Dependency**: A value must already exist on the stack prior to calling `executeLet`.
+     *   If the stack is empty, the method throws a runtime error to indicate stack underflow.
+     * - **Variable Storage**: The popped value is stored in the `locals` map of the current stack frame,
+     *   with the variable name as the key.
+     *
+     * ### Error Handling
+     * Some runtime errors may occur under the following conditions:
+     * - If the `let` keyword or a valid identifier is missing, a syntax error is thrown.
+     * - If the stack is empty when attempting to pop a value for assignment, this results in a
+     *   "[INTERPRETER][ERROR]: Stack underflow" error.
+     *
+     * ### Related Functions
+     * @see Interpreter::consume()
+     * @see Interpreter::currentFrame()
+     */
+    void executeLet();
+
+    /**
+     * @brief Executes a `set` operation in the interpreter's execution environment.
+     *
+     * The `executeSet` function is responsible for handling assignment operations.
+     * It evaluates the left-hand side (e.g., a variable or property) and assigns it
+     * a value determined by evaluating the right-hand side expression.
+     *
+     * This function operates within the context of the interpreter and modifies
+     * state accordingly, such as updating variable bindings in the current scope
+     * or producing runtime errors for invalid operations.
+     *
+     * ### Behavior
+     * - The function resolves the target of the assignment by evaluating the left-hand side.
+     * - It evaluates the right-hand side expression to compute the value.
+     * - The computed value is assigned to the resolved target.
+     *
+     * ### Error Handling
+     * Executes validations to ensure correct assignment semantics:
+     * - Throws a runtime error if attempting to assign to an invalid target (e.g., an undeclared variable or read-only property).
+     * - Produces a type error if assignment violates type constraints (if applicable).
+     *
+     * ### Related Functions
+     * @see Interpreter::evaluateExpression()
+     * @see Interpreter::resolveIdentifier()
+     */
+    void executeSet();
 
     /**
      * @brief Executes the logical AND operation in the interpreter.
@@ -1900,6 +2028,9 @@ private:
      * @see Interpreter::executeBlock()
      */
     std::vector<size_t> m_structMarks;
+
+    // Call stack frames
+    std::vector<Frame> m_frames;
 };
 
 #endif //LEXER_H

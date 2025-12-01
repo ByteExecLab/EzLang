@@ -19,6 +19,10 @@ enum class TokenType: uint8_t {
     //
     CONST, LOAD_VARIABLE, STORE_VARIABLE,
 
+    // Locals
+    LET,
+    SET,
+
     // Logical
     EQUALS,NOT_EQUALS, LESS_THAN, LESS_THAN_EQUALS, GREATER_THAN, GREATER_THAN_EQUALS, ZERO_CHECK,
     AND, OR, NOT,
@@ -245,6 +249,10 @@ inline std::string tokenTypeToString(const TokenType type) {
         {TokenType::GREATER_THAN, "GREATER_THAN"},
         {TokenType::GREATER_THAN_EQUALS, "GREATER_THAN_EQUALS"},
         {TokenType::ZERO_CHECK, "ZERO_CHECK"},
+
+        // Local
+        {TokenType::LET, "LET"},
+        {TokenType::SET, "SET"},
 
         // Arrays & Structs
         {TokenType::ARRAY_START, "ARRAY_START"},

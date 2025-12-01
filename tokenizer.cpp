@@ -75,6 +75,10 @@ std::vector<Token> tokenizer::tokenize() {
         {"return", TokenType::RETURN},
         {"word", TokenType::WORD},
 
+        // Locals
+        {"let", TokenType::LET},
+        {"set", TokenType::SET},
+
         // Arrays & Structs
         {"array-len",  TokenType::ARRAY_LEN},
         {"array-get",  TokenType::ARRAY_GET},
