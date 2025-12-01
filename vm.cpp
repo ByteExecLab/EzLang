@@ -6,6 +6,10 @@
 #include <iostream>
 #include <variant>
 
+void VM::advanceIP() {
+    ++m_ip;
+}
+
 void VM::run() {
     const auto& code = m_program.code;
 
@@ -13,18 +17,24 @@ void VM::run() {
 
         switch (const Instruction& ins = code[m_ip]; ins.op) {
             case OpCode::PUSH_INT: {
-                m_stack.push(static_cast<int>(ins.argInt));
-                ++m_ip;
+                m_stack.push((ins.argInt));
+                advanceIP();
                 break;
             }
             case OpCode::PUSH_FLOAT: {
-                m_stack.push(static_cast<double>(ins.argInt));
-                ++m_ip;
+                const auto idx = ins.argIndex;
+                if (idx < 0 || static_cast<std::size_t>(idx) >= m_program.constants.size()) {
+                    throw std::runtime_error("[VM]: Invalid constant index for PUSH_FLOAT");
+                }
+
+                const StackValue& v = m_program.constants[static_cast<std::size_t>(idx)];
+                m_stack.push(v);   // pushes the real double
+                advanceIP();
                 break;
             }
             case OpCode::PUSH_BOOL: {
                 m_stack.push(ins.argInt != 0);
-                ++m_ip;
+                advanceIP();
                 break;
             }
             case OpCode::PUSH_STRING: {
@@ -35,69 +45,135 @@ void VM::run() {
 
                 const StackValue& v = m_program.constants[static_cast<std::size_t>(idx)];
                 m_stack.push(v);
-                ++m_ip;
+                advanceIP();
                 break;
             }
             // -------------------- Maths -------------------------
             case OpCode::ADD: {
-                // TODO: this assumes both are INTs for now
-                auto a = m_stack.pop();
-                auto b = m_stack.pop();
+                // TODO: Implement strings
+                const StackValue r_value = m_stack.pop(); // TOP
+                const StackValue l_value = m_stack.pop(); // Below TOP
 
-                const int ia = std::get<int>(a);
-                const int ib = std::get<int>(b);
+                if (Utils::isNumber(l_value) && Utils::isNumber(r_value)) {
+                    if (Utils::bothInt(l_value, r_value)) {
+                        const int ia = std::get<int>(l_value);
+                        const int ib = std::get<int>(r_value);
+                        m_stack.push(ia + ib);
+                    }
+                    else {
+                        const double la = Utils::toDouble(l_value);
+                        const double ra = Utils::toDouble(r_value);
 
-                m_stack.push(ib + ia);
-                ++m_ip;
+                        m_stack.push(la + ra);
+                    }
+                }
+                else {
+                    throw std::runtime_error("[VM]: Mismatched types for 'ADD' operation");
+                }
+
+                advanceIP();
                 break;
             }
             case OpCode::SUB: {
-                // TODO: this assumes both are INTs for now
-                auto a = m_stack.pop();
-                auto b = m_stack.pop();
+                StackValue r_value = m_stack.pop(); // TOP
+                StackValue l_value = m_stack.pop(); // Below TOP
 
-                const int ia = std::get<int>(a);
-                const int ib = std::get<int>(b);
+                if (Utils::isNumber(l_value) && Utils::isNumber(r_value)) {
+                    if (Utils::bothInt(l_value, r_value)) {
+                        const int ia = std::get<int>(l_value);
+                        const int ib = std::get<int>(r_value);
+                        m_stack.push(ia - ib);
+                    }
+                    else {
+                        const double la = Utils::toDouble(l_value);
+                        const double ra = Utils::toDouble(r_value);
 
-                m_stack.push(ib - ia);
-                ++m_ip;
+                        m_stack.push(la - ra);
+                    }
+                }
+                else {
+                    throw std::runtime_error("[VM]: Mismatched types for 'SUB' operation");
+                }
+
+                advanceIP();
                 break;
             }
             case OpCode::MUL: {
-                // TODO: this assumes only int
-                auto a = m_stack.pop();
-                auto b = m_stack.pop();
+                StackValue r_value = m_stack.pop(); // TOP
+                StackValue l_value = m_stack.pop(); // Below TOP
 
-                const int ia = std::get<int>(a);
-                const int ib = std::get<int>(b);
+                if (Utils::isNumber(l_value) && Utils::isNumber(r_value)) {
+                    if (Utils::bothInt(l_value, r_value)) {
+                        const int ia = std::get<int>(l_value);
+                        const int ib = std::get<int>(r_value);
 
-                m_stack.push(ib * ia);
-                ++m_ip;
+                        m_stack.push(ia * ib);
+                    }
+                    else {
+                        const double la = Utils::toDouble(l_value);
+                        const double ra = Utils::toDouble(r_value);
+
+                        m_stack.push(la * ra);
+                    }
+                }
+                else {
+                    throw std::runtime_error("[VM]: Mismatched types for 'MUL' operation");
+                }
+
+                advanceIP();
                 break;
             }
             case OpCode::DIV: {
-                // TODO: this assumes only int
-                auto a = m_stack.pop();
-                auto b = m_stack.pop();
+                StackValue r_value = m_stack.pop();
+                StackValue l_value = m_stack.pop();
 
-                const int ia = std::get<int>(a);
-                const int ib = std::get<int>(b);
+                // Division by 0
+                if (const double denom = Utils::toDouble(r_value); denom == 0.0) {
+                    throw std::runtime_error("[VM]: Division by zero");
+                }
 
-                m_stack.push(ib / ia);
-                ++m_ip;
+                if (Utils::isNumber(l_value) && Utils::isNumber(r_value)) {
+                    if (Utils::bothInt(l_value, r_value)) {
+                        const int ia = std::get<int>(l_value);
+                        const int ib = std::get<int>(r_value);
+
+                        m_stack.push(ia / ib);
+                    }
+                    else {
+                        const double la = Utils::toDouble(l_value);
+                        const double ra = Utils::toDouble(r_value);
+
+                        m_stack.push(la / ra);
+                    }
+                }
+                else {
+                    throw std::runtime_error("[VM]: Mismatched types for 'DIV' operation");
+                }
+
+                advanceIP();
                 break;
             }
             case OpCode::MOD: {
                 // TODO: this assumes only int
-                auto a = m_stack.pop();
-                auto b = m_stack.pop();
+                StackValue r_value = m_stack.pop();
+                StackValue l_value = m_stack.pop();
 
-                const int ia = std::get<int>(a);
-                const int ib = std::get<int>(b);
+                // Mod by 0
+                if (const double denom = Utils::toDouble(r_value); denom == 0.0) {
+                    throw std::runtime_error("[VM]: Division by zero");
+                }
 
-                m_stack.push(ib % ia);
-                ++m_ip;
-                break;
+                if (Utils::isNumber(l_value) && Utils::isNumber(r_value)) {
+                    if (Utils::bothInt(l_value, r_value)) {
+                        const int ia = std::get<int>(l_value);
+                        const int ib = std::get<int>(r_value);
+
+                         m_stack.push(ia % ib);
+                    }
+                }
+                else {
+                    throw std::runtime_error("[VM]: Mismatched types for 'MOD' operation");
+                }
             }
             // --------------------- PRINT ---------------------
             case OpCode::PRINT: {

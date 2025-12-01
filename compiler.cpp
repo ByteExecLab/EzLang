@@ -19,7 +19,11 @@ BytecodeProgram compiler::compileToBytecode(const std::vector<Token> &tokens) {
             }
             case TokenType::FLOAT_LITERAL: {
                 double v = std::get<double>(token.value);
-                program.code.emplace_back(OpCode::PUSH_FLOAT, v);
+                program.constants.emplace_back(v);
+                const auto idx = static_cast<int32_t>(program.constants.size() - 1);
+
+                program.code.emplace_back(OpCode::PUSH_FLOAT, 0, idx);
+
                 break;
             }
             case TokenType::BOOL_LITERAL: {
@@ -32,7 +36,7 @@ BytecodeProgram compiler::compileToBytecode(const std::vector<Token> &tokens) {
 
                 // Put string into a constant table
                 program.constants.emplace_back(v);
-                const int32_t idx = static_cast<int32_t>(program.constants.size() - 1);
+                const auto idx = static_cast<int32_t>(program.constants.size() - 1);
 
                 // encode only the constant index in the instruction
                 program.code.emplace_back(OpCode::PUSH_STRING, /*argInt*/ 0, /*argIndex*/ idx);

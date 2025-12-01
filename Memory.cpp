@@ -27,11 +27,13 @@ Memory::Memory(const size_t size) {
  * @throw std::runtime_error If the specified address is out of bounds.
  */
 void Memory::write(uint32_t address, const StackValue &value) {
-    if (address >= m_memory.size()) {
+    const std::size_t index = address / sizeof(StackValue);
+
+    if (index >= m_memory.size()) {
         throw std::runtime_error("[ERROR]: Memory address out of bounds");
     }
 
-    m_memory[address] = value;
+    m_memory[index] = value;  // safe: real StackValue object
 }
 
 /**
@@ -41,12 +43,13 @@ void Memory::write(uint32_t address, const StackValue &value) {
  * @return The value stored at the specified memory address.
  * @throws std::runtime_error If the provided address is out of bounds.
  */
-StackValue Memory::read(const uint32_t address) const {
-    if (address >= m_memory.size()) {
+StackValue Memory::read(uint32_t address) const {
+    const std::size_t index = address / sizeof(StackValue);
+    if (index >= m_memory.size()) {
         throw std::runtime_error("[ERROR]: Memory address out of bounds");
     }
 
-    return m_memory[address];
+    return m_memory[index];
 }
 
 /**

@@ -629,8 +629,8 @@ void Interpreter::executeBinary(const TokenType tokenType) {
     }
 
     // Stack: [..., left, right]
-    StackValue r_value = m_stack.pop(); // TOP
-    StackValue l_value = m_stack.pop(); // Below TOP
+    const StackValue r_value = m_stack.pop(); // TOP
+    const StackValue l_value = m_stack.pop(); // Below TOP
 
     // Result store
     StackValue result;
@@ -654,12 +654,13 @@ void Interpreter::executeBinary(const TokenType tokenType) {
             // Numeric addition
             else if (isNumber(l_value) && isNumber(r_value)) {
                 if (bothInt(l_value, r_value)) {
-                    int a = std::get<int>(l_value);
-                    int b = std::get<int>(r_value);
+                    const int a = std::get<int>(l_value);
+                    const int b = std::get<int>(r_value);
                     result = a + b;
-                } else {
-                    double a = toDouble(l_value);
-                    double b = toDouble(r_value);
+                }
+                else {
+                    const double a = toDouble(l_value);
+                    const double b = toDouble(r_value);
                     result = a + b;
                 }
             }
@@ -1255,8 +1256,8 @@ void Interpreter::executeStructEnd() {
             throw std::runtime_error("[ERROR]: Struct keys must be strings");
         }
 
-        const std::string keyStr = std::get<std::string>(key);
-        obj.fields.emplace(std::move(keyStr), std::move(value));
+        auto keyStr = std::get<std::string>(key);
+        obj.fields.emplace(std::move(keyStr), std::make_shared<StackValue>(std::move(value)));
     }
 
     // Order doesn't matter because it's a map.
@@ -1305,7 +1306,7 @@ void Interpreter::executeArrayGet() {
         throw std::runtime_error("[ERROR]: array-get index out of range");
     }
 
-    m_stack.push(arr.elements[static_cast<size_t>(idx)]);
+    m_stack.push(*arr.elements[static_cast<size_t>(idx)]);
 }
 
 
@@ -1332,7 +1333,7 @@ void Interpreter::executeArrayGet() {
         throw std::runtime_error("[ERROR]: array-set index out of range");
     }
 
-    arr.elements[static_cast<size_t>(idx)] = std::move(valueV);
+    arr.elements[static_cast<size_t>(idx)] = std::make_shared<StackValue>(std::move(valueV));
 
     m_stack.push(StackValue{std::move(arr)});
  }
@@ -1361,7 +1362,7 @@ void Interpreter::executeStructGet() {
     if (it == obj.fields.end()) {
         m_stack.push(StackValue{std::monostate{}});
     } else {
-        m_stack.push(it->second);
+        m_stack.push(*it->second);
     }
 }
 
@@ -1383,10 +1384,10 @@ void Interpreter::executeStructSet() {
         throw std::runtime_error("[ERROR]: struct-set expects struct under key/value");
     }
 
-    std::string key = std::get<std::string>(keyV);
-    StructValue obj = std::get<StructValue>(objV); // copy
+    auto key = std::get<std::string>(keyV);
+    auto obj = std::get<StructValue>(objV); // copy
 
-    obj.fields[std::move(key)] = std::move(valueV);
+    obj.fields[std::move(key)] = std::make_shared<StackValue>(std::move(valueV));
 
     m_stack.push(StackValue{std::move(obj)});
 }
@@ -1415,7 +1416,7 @@ void Interpreter::executeStructAccess() {
     if (it == obj.fields.end()) {
         m_stack.push(StackValue{std::monostate{}});
     } else {
-        m_stack.push(it->second);
+        m_stack.push(*it->second);
     }
 }
 

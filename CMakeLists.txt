@@ -21,7 +21,9 @@ add_executable(ezlang main.cpp
         vm.h
         vm.cpp
         compiler.cpp
-        compiler.h)
+        compiler.h
+        Utils.cpp
+        Utils.h)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     # Link libstdc++ and libgcc statically so you don't need those DLLs

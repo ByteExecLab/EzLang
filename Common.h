@@ -4,9 +4,11 @@
 
 #ifndef COMMON_H
 #define COMMON_H
+#include <memory>
 #include <string>
 #include <variant>
 #include <unordered_map>
+#include <vector>
 
 struct ArrayValue;
 struct StructValue;
@@ -22,11 +24,22 @@ using StackValue = std::variant<
 >;
 
 struct ArrayValue {
-    std::vector<StackValue> elements;
+    std::vector<std::shared_ptr<StackValue>> elements;
+
+    ArrayValue() = default;
+    explicit ArrayValue(std::vector<StackValue> src);
 };
 
 struct StructValue {
-    std::unordered_map<std::string, StackValue> fields;
+    std::unordered_map<std::string, std::shared_ptr<StackValue>> fields;
 };
+
+inline ArrayValue::ArrayValue(std::vector<StackValue> src) {
+    elements.reserve(src.size());
+    for (auto &v : src) {
+        elements.push_back(std::make_shared<StackValue>(std::move(v)));
+    }
+}
+
 
 #endif //COMMON_H

@@ -6,6 +6,7 @@
 #define EZLANG_VM_H
 #include "bytecode.h"
 #include "Stack.h"
+#include "Utils.h"
 
 class VM {
 public:
@@ -18,6 +19,8 @@ public:
     Stack& stack() { return m_stack; }
 
 private:
+    void advanceIP();
+    
     BytecodeProgram m_program;
     Stack m_stack;
     std::size_t m_ip = 0; // instruction pointer
