@@ -7,26 +7,11 @@
 #include <iostream>
 #include <bits/ostream.tcc>
 
-/**
- * Constructs a Memory object with the specified size, initializing all memory locations to zero.
- *
- * @param size The number of memory locations to allocate and initialize.
- * @return None
- */
 Memory::Memory(const size_t size) {
     m_memory.resize(size, 0);
 }
 
-/**
- * Writes a value to the specified memory address.
- *
- * @param address The memory address where the value should be written.
- *                Must be within the bounds of the allocated memory.
- * @param value The value to write to the specified memory address.
- *              Can contain different types as defined by the StackValue variant.
- * @throw std::runtime_error If the specified address is out of bounds.
- */
-void Memory::write(uint32_t address, const StackValue &value) {
+void Memory::write(const uint32_t address, const StackValue &value) {
     const std::size_t index = address / sizeof(StackValue);
 
     if (index >= m_memory.size()) {
@@ -36,14 +21,7 @@ void Memory::write(uint32_t address, const StackValue &value) {
     m_memory[index] = value;  // safe: real StackValue object
 }
 
-/**
- * Reads the value stored at the specified memory address.
- *
- * @param address The memory address from which the value is to be read.
- * @return The value stored at the specified memory address.
- * @throws std::runtime_error If the provided address is out of bounds.
- */
-StackValue Memory::read(uint32_t address) const {
+StackValue Memory::read(const uint32_t address) const {
     const std::size_t index = address / sizeof(StackValue);
     if (index >= m_memory.size()) {
         throw std::runtime_error("[ERROR]: Memory address out of bounds");
@@ -52,15 +30,6 @@ StackValue Memory::read(uint32_t address) const {
     return m_memory[index];
 }
 
-/**
- * Outputs the current state of the memory to the standard output.
- *
- * This method iterates over all memory locations and prints each index
- * followed by its value. If the value is an integer, it prints the integer.
- * If the value is a string, it prints the string.
- *
- * @return None
- */
 void Memory::dump() const {
     std::cout << "Memory dump:" << std::endl;
     for (size_t i = 0; i < m_size; i++) {

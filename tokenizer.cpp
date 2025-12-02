@@ -36,20 +36,8 @@ auto tokenizer::readNumber(std::string prefix = "") {
     }
 }
 
-
-/**
- * Tokenizes the input string, breaking it down into a sequence of tokens.
- *
- * This function iterates through the input string, identifying individual language elements
- * such as keywords, operators, literals, and identifiers.  It constructs a vector of
- * Token structures, where each token represents a meaningful unit of the source code.
- *
- * @return A vector of Token structures, representing the tokens found in the input string.
- */
 std::vector<Token> tokenizer::tokenize() {
     std::string buf;
-
-    bool lastWasValue = false; // Tracks if last emitted token was a "value"
 
     static const std::unordered_map<std::string, TokenType> keywords = {
         {"dup", TokenType::DUP},
@@ -97,7 +85,6 @@ std::vector<Token> tokenizer::tokenize() {
             case '\n':
             case '\r': {
                 // newline: we consider this a "statement boundary", so allow unary - after line break
-                lastWasValue = false;
                 break;
             }
             case ';': {
@@ -107,29 +94,24 @@ std::vector<Token> tokenizer::tokenize() {
             }
             case '[': {
                 m_tokens.emplace_back(TokenType::ARRAY_START, std::string{}, m_line, m_column);
-                lastWasValue = false;
                 break;
             }
             case ']': {
                 m_tokens.emplace_back(TokenType::ARRAY_END, std::string{}, m_line, m_column);
                 // acts like an operator, not a literal → keep lastWasValue = false
-                lastWasValue = false;
                 break;
             }
             case '{': {
                 m_tokens.emplace_back(TokenType::STRUCT_START, std::string{}, m_line, m_column);
-                lastWasValue = false;
                 break;
             }
             case '}': {
                 m_tokens.emplace_back(TokenType::STRUCT_END, std::string{}, m_line, m_column);
-                lastWasValue = false;
                 break;
             }
             // --- Operators / punctuation ---
             case '+': {
                 m_tokens.emplace_back(TokenType::ADD, '+', m_line, m_column);
-                lastWasValue = false;
                 break;
             }
             case '.': {
@@ -152,27 +134,22 @@ std::vector<Token> tokenizer::tokenize() {
             }
             case '*': {
                 m_tokens.emplace_back(TokenType::MUL, '*', m_line, m_column);
-                lastWasValue = false;
                 break;
             }
             case '/': {
                 m_tokens.emplace_back(TokenType::DIV, '/', m_line, m_column);
-                lastWasValue = false;
                 break;
             }
             case '%': {
                 m_tokens.emplace_back(TokenType::MOD, '%', m_line, m_column);
-                lastWasValue = false;
                 break;
             }
             case '=': {
                 m_tokens.emplace_back(TokenType::EQUALS, '=', m_line, m_column);
-                lastWasValue = false;
                 break;
             }
             case '?': {
                 m_tokens.emplace_back(TokenType::ZERO_CHECK, '?', m_line, m_column);
-                lastWasValue = false;
                 break;
             }
             case '!': {
@@ -183,7 +160,6 @@ std::vector<Token> tokenizer::tokenize() {
                 else {
                     m_tokens.emplace_back(TokenType::STORE_VARIABLE, std::string{}, m_line, m_column);
                 }
-                lastWasValue = false;
                 break;
             }
             case '<': {
@@ -194,7 +170,6 @@ std::vector<Token> tokenizer::tokenize() {
                 else {
                     m_tokens.emplace_back(TokenType::LESS_THAN, std::string{}, m_line, m_column);
                 }
-                lastWasValue = false;
                 break;
             }
             case '>': {
@@ -205,12 +180,10 @@ std::vector<Token> tokenizer::tokenize() {
                 else {
                     m_tokens.emplace_back(TokenType::GREATER_THAN, std::string{}, m_line, m_column);
                 }
-                lastWasValue = false;
                 break;
             }
             case '@': {
                 m_tokens.emplace_back(TokenType::LOAD_VARIABLE, std::string{}, m_line, m_column);
-                lastWasValue = false;
                 break;
             }
             // --- String literal ---
@@ -227,7 +200,6 @@ std::vector<Token> tokenizer::tokenize() {
                     consume(); // closing quote
                     m_tokens.emplace_back(TokenType::STR_LITERAL, buf, startLine, startColumn);
                     buf.clear();
-                    lastWasValue = true; // string literal is a value
                 } else {
                     std::cerr << "Error at line " << m_line << ", column " << m_column
                               << ": Unterminated string literal" << std::endl;
@@ -284,13 +256,6 @@ std::vector<Token> tokenizer::tokenize() {
     return m_tokens;
 }
 
-/**
- * Look ahead in the input string by a specified offset without consuming characters.
- *
- * @param offset The number of characters to look ahead.  Must be non-negative.
- * @return An optional containing the character at the offset position, or std::nullptr
- * if the offset goes beyond the end of the input string.
- */
 std::optional<char> tokenizer::peek(const size_t offset) const {
     if (m_pos + offset >= m_source.size()) {
         return std::nullopt;
@@ -299,11 +264,6 @@ std::optional<char> tokenizer::peek(const size_t offset) const {
     return m_source.at(m_pos + offset);
 }
 
-/**
- * Consumes the next character from the input string and advances the position.
- *
- * @return The character that was consumed.
- */
 char tokenizer::consume() {
     const char c = m_source.at(m_pos++);
     if (c == '\n' || c == '\r') {

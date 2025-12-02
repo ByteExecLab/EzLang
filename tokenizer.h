@@ -1,7 +1,6 @@
 #ifndef TOKENIZER_H
 #define TOKENIZER_H
 
-#include <cstdint>
 #include <map>
 #include <optional>
 #include <string>
@@ -196,13 +195,67 @@ private:
      */
     void printErrorContext() const;
 
+    /**
+     * Reads a numeric sequence from the input starting with an optional prefix.
+     * This method identifies numbers either as integers or floating-point literals,
+     * processes the input, and stores the corresponding token in the token list.
+     * If parsing fails, it will output an error message and terminate the program.
+     *
+     * @param prefix An optional initial string to prepend to the number being read.
+     *               This can be used to supply a starting context for the numeric value.
+     * @return void This method does not return a value, but updates the internal
+     *              token list with an integer or floating-point number token.
+     */
     auto readNumber(std::string prefix);
 
 private:
+    /**
+     * @variable m_tokens
+     * A collection of `Token` objects representing the tokenized elements of the source input.
+     *
+     * This member variable stores the result of the tokenization process, where each `Token`
+     * represents a distinct unit of meaningful data identified from the source string. The
+     * tokens in this vector are categorized and structured according to the rules defined
+     * by the tokenizer, facilitating further processing or analysis of the input.
+     */
     std::vector<Token> m_tokens;
+
+    /**
+     * @variable m_source
+     * The source string to be tokenized.
+     *
+     * This member variable holds the input text provided to the tokenizer. It serves as
+     * the primary data source that the tokenizer processes to generate tokens. The string
+     * is analyzed character by character, and its contents are used for token generation,
+     * error context output, and lookup mechanisms during the tokenization process.
+     */
     std::string m_source;
+
+    /**
+     * @variable m_pos
+     * Tracks the current position within the source string being tokenized.
+     *
+     * This member variable maintains an index into the source string (`m_source`) that indicates
+     * the character currently being processed or that will be processed next during the tokenization
+     * process. It is incremented as characters are consumed or inspected, enabling sequential
+     * navigation through the input text. The position is used in various internal methods such as
+     * peeking and consuming characters, as well as generating error context.
+     */
     size_t m_pos = 0;
+
+    /**
+     * @variable m_line
+     * Tracks the current line number being processed in the tokenizer. This is useful for error reporting
+     * and debugging by providing context about the location within the input data.
+     */
     size_t m_line = 1;
+
+    /**
+     * @var m_column
+     * Represents the current column index being processed. This value is typically used
+     * to track the horizontal position in a data stream or input, aiding in parsing or
+     * error reporting by providing column-level context.
+     */
     size_t m_column = 1;
 };
 
