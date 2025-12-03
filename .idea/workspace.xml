@@ -29,20 +29,8 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e879248a-9567-47e7-b0a3-b9d5f6463c05" name="Changes" comment="Load standard library">
-      <change afterPath="$PROJECT_DIR$/std/platform_io.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/std/platfrom_io.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    <list default="true" id="e879248a-9567-47e7-b0a3-b9d5f6463c05" name="Changes" comment="Implement platform specific basic IO operations for writing and reading STDIN and STDOUT">
       <change beforePath="$PROJECT_DIR$/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/CMakeLists.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Interpreter.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Interpreter.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Interpreter.h" beforeDir="false" afterPath="$PROJECT_DIR$/Interpreter.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/ezlang" beforeDir="false" afterPath="$PROJECT_DIR$/build/ezlang" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/compiler.h" beforeDir="false" afterPath="$PROJECT_DIR$/compiler.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/main.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/std/StdIo.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/std/StdIo.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/std/StdIo.h" beforeDir="false" afterPath="$PROJECT_DIR$/std/StdIo.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tokenizer.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Tokenizer.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tokenizer.h" beforeDir="false" afterPath="$PROJECT_DIR$/Tokenizer.h" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -190,7 +178,7 @@
       <workItem from="1763878520538" duration="35341000" />
       <workItem from="1764482816136" duration="24785000" />
       <workItem from="1764660135439" duration="4773000" />
-      <workItem from="1764744483660" duration="13782000" />
+      <workItem from="1764744483660" duration="13877000" />
     </task>
     <task id="LOCAL-00001" summary="Ignore Linux line endings">
       <option name="closed" value="true" />
@@ -464,7 +452,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764772772777</updated>
     </task>
-    <option name="localTasksCounter" value="35" />
+    <task id="LOCAL-00035" summary="Implement platform specific basic IO operations for writing and reading STDIN and STDOUT">
+      <option name="closed" value="true" />
+      <created>1764797269414</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1764797269414</updated>
+    </task>
+    <option name="localTasksCounter" value="36" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -487,7 +483,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="All a temporary test runner" />
     <MESSAGE value="remove github actions" />
     <MESSAGE value="Improve error display" />
     <MESSAGE value="Delect misspelled keywords" />
@@ -512,7 +507,8 @@
     <MESSAGE value="Implement local variables" />
     <MESSAGE value="Clean Up" />
     <MESSAGE value="Load standard library" />
-    <option name="LAST_COMMIT_MESSAGE" value="Load standard library" />
+    <MESSAGE value="Implement platform specific basic IO operations for writing and reading STDIN and STDOUT" />
+    <option name="LAST_COMMIT_MESSAGE" value="Implement platform specific basic IO operations for writing and reading STDIN and STDOUT" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
