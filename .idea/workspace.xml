@@ -29,7 +29,7 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e879248a-9567-47e7-b0a3-b9d5f6463c05" name="Changes" comment="Implement platform specific basic IO operations for writing and reading STDIN and STDOUT">
+    <list default="true" id="e879248a-9567-47e7-b0a3-b9d5f6463c05" name="Changes" comment="File rename failure fix">
       <change beforePath="$PROJECT_DIR$/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/CMakeLists.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -178,7 +178,7 @@
       <workItem from="1763878520538" duration="35341000" />
       <workItem from="1764482816136" duration="24785000" />
       <workItem from="1764660135439" duration="4773000" />
-      <workItem from="1764744483660" duration="13877000" />
+      <workItem from="1764744483660" duration="14057000" />
     </task>
     <task id="LOCAL-00001" summary="Ignore Linux line endings">
       <option name="closed" value="true" />
@@ -460,7 +460,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764797269414</updated>
     </task>
-    <option name="localTasksCounter" value="36" />
+    <task id="LOCAL-00036" summary="File rename failure fix">
+      <option name="closed" value="true" />
+      <created>1764797343471</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1764797343471</updated>
+    </task>
+    <option name="localTasksCounter" value="37" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -483,7 +491,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="remove github actions" />
     <MESSAGE value="Improve error display" />
     <MESSAGE value="Delect misspelled keywords" />
     <MESSAGE value="Implement functions/words" />
@@ -508,7 +515,8 @@
     <MESSAGE value="Clean Up" />
     <MESSAGE value="Load standard library" />
     <MESSAGE value="Implement platform specific basic IO operations for writing and reading STDIN and STDOUT" />
-    <option name="LAST_COMMIT_MESSAGE" value="Implement platform specific basic IO operations for writing and reading STDIN and STDOUT" />
+    <MESSAGE value="File rename failure fix" />
+    <option name="LAST_COMMIT_MESSAGE" value="File rename failure fix" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
