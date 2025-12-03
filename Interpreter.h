@@ -8,7 +8,7 @@
 
 #include "Memory.h"
 #include "Stack.h"
-#include "tokenizer.h"
+#include "Tokenizer.h"
 
 class Interpreter;
 
@@ -138,6 +138,8 @@ public:
     explicit Interpreter(std::vector<Token> tokens, Stack stack, std::string source);
 
     void registerNativeWord(const std::string& name, int arity, std::function<ControlSignal(Interpreter&)> fn);
+
+    Stack& stack();
 
     /**
      * Pushes a value onto the stack managed by the Interpreter.

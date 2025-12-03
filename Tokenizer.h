@@ -129,7 +129,7 @@ struct Token {
         : type(t), value(std::move(v)), line(line_), column(col_) {}
 };
 
-class tokenizer {
+class Tokenizer {
 public:
     /**
      * Constructs a tokenizer object from the given source string.
@@ -139,7 +139,7 @@ public:
      *
      * @param source The source input string to be tokenized.
      */
-    explicit tokenizer(std::string source);
+    explicit Tokenizer(std::string source);
 
     /**
      * Analyzes the input source string and converts it into a sequence of tokens.

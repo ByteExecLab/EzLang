@@ -1,11 +1,11 @@
-#include "tokenizer.h"
+#include "Tokenizer.h"
 
 #include <iostream>
 #include <unordered_map>
 
-tokenizer::tokenizer(std::string source): m_source(std::move(source)) {}
+Tokenizer::Tokenizer(std::string source): m_source(std::move(source)) {}
 
-auto tokenizer::readNumber(std::string prefix = "") {
+auto Tokenizer::readNumber(std::string prefix = "") {
     std::string num = std::move(prefix);
     bool isFloat = false;
 
@@ -36,7 +36,7 @@ auto tokenizer::readNumber(std::string prefix = "") {
     }
 }
 
-std::vector<Token> tokenizer::tokenize() {
+std::vector<Token> Tokenizer::tokenize() {
     std::string buf;
 
     static const std::unordered_map<std::string, TokenType> keywords = {
@@ -256,7 +256,7 @@ std::vector<Token> tokenizer::tokenize() {
     return m_tokens;
 }
 
-std::optional<char> tokenizer::peek(const size_t offset) const {
+std::optional<char> Tokenizer::peek(const size_t offset) const {
     if (m_pos + offset >= m_source.size()) {
         return std::nullopt;
     }
@@ -264,7 +264,7 @@ std::optional<char> tokenizer::peek(const size_t offset) const {
     return m_source.at(m_pos + offset);
 }
 
-char tokenizer::consume() {
+char Tokenizer::consume() {
     const char c = m_source.at(m_pos++);
     if (c == '\n' || c == '\r') {
         m_line++;
@@ -275,7 +275,7 @@ char tokenizer::consume() {
     return c;
 }
 
-void tokenizer::printErrorContext() const {
+void Tokenizer::printErrorContext() const {
     size_t line_start = m_pos;
     while (line_start > 0 && m_source[line_start-1] != '\n') {
         line_start--;

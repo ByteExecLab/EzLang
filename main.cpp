@@ -6,7 +6,7 @@
 
 #include "compiler.h"
 #include "Interpreter.h"
-#include "tokenizer.h"
+#include "Tokenizer.h"
 #include "Loader.h"
 #include "vm.h"
 
@@ -90,7 +90,7 @@ int main(int argc, char** argv) {
     std::string source = loadSourceWithIncludes(path);
 
     // Tokenize
-    tokenizer lex(source);
+    Tokenizer lex(source);
     auto tokens = lex.tokenize();
 
     if (dumpTokens) {

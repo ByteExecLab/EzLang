@@ -5,7 +5,7 @@
 #ifndef EZLANG_COMPILER_H
 #define EZLANG_COMPILER_H
 #include "bytecode.h"
-#include "tokenizer.h"
+#include "Tokenizer.h"
 
 
 class compiler {

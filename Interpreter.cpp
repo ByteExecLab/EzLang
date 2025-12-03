@@ -784,6 +784,9 @@ void Interpreter::registerNativeWord(const std::string &name, const int arity, s
     m_nativeWords[name] = NativeWord{arity, std::move(fn)};
 }
 
+Stack &Interpreter::stack() {
+    return m_stack;
+}
 
 void Interpreter::executeWordDefinition() {
     consume(TokenType::WORD, "Expected 'word'");
