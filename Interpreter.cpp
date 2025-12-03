@@ -780,6 +780,11 @@ void Interpreter::executeDefineVariable() {
     consume(TokenType::END, "[ERROR]: Expected END after variable declaration"); // Consume END
 }
 
+void Interpreter::registerNativeWord(const std::string &name, const int arity, std::function<ControlSignal(Interpreter &)> fn) {
+    m_nativeWords[name] = NativeWord{arity, std::move(fn)};
+}
+
+
 void Interpreter::executeWordDefinition() {
     consume(TokenType::WORD, "Expected 'word'");
 
@@ -805,56 +810,67 @@ void Interpreter::executeWordDefinition() {
 }
 
 void Interpreter::executeIdentifier() {
-    const Token& identTok = m_tokens[m_pos];
-    const std::string name = std::get<std::string>(identTok.value);
+    const Token& identToken = m_tokens[m_pos];
+    const std::string name = std::get<std::string>(identToken.value);
 
-    // Check for local variable
-    if (!m_frames.empty()) {
-        auto &locs = m_frames.back().locals;
-        if (auto it = locs.find(name); it != locs.end()) {
-            // load local onto stack
-            m_stack.push(it->second);
-            ++m_pos;
-            return;
-        }
-    }
-
-    // variable cases...
+    // Variable load/store shortcut
     const auto next = peek(1);
-    if (next && next->type == TokenType::LOAD_VARIABLE) { /* ... */ }
-    if (next && next->type == TokenType::STORE_VARIABLE) { /* ... */ }
-
-    // user-defined word:
-    const auto it = m_words.find(name);
-    if (it == m_words.end()) {
-        throw std::runtime_error("[ERROR]: Unknown word '" + name + "'");
-    }
-
-    auto&[body, arity] = it->second;
-
-    if (arity > 0 && static_cast<int>(m_stack.size()) < arity) {
-        throw std::runtime_error(
-            "[ERROR]: Word '" + name + "' expects " +
-            std::to_string(arity) + " argument(s) on the stack, but only " +
-            std::to_string(m_stack.size()) + " present"
-        );
-    }
-
-    // consume the identifier token
-    ++m_pos;
-
-    // New frame for this call
-    pushFrame();
-    const ControlSignal sig = executeBlock(body);
-    popFrame(); // guaranteed by normal flow – if you want exception safety, use RAII
-
-    if (sig == ControlSignal::Return) {
-        // swallow return at word boundary
+    if (next && next->type == TokenType::LOAD_VARIABLE) {
+        executeLoadVariable();
         return;
     }
-    if (sig == ControlSignal::Break || sig == ControlSignal::Continue) {
-        m_controlSignal = sig;
+    if (next && next->type == TokenType::STORE_VARIABLE) {
+        executeStoreVariable();
+        return;
     }
+
+    // User-defined word
+    if (const auto itUser = m_words.find(name); itUser != m_words.end()) {
+        const auto&[body, arity] = itUser->second;
+
+        if (arity > 0 && static_cast<int>(m_stack.size()) < arity) {
+            throw std::runtime_error(
+                "[ERROR]: Word '" + name + "' expects " +
+                std::to_string(arity) + " argument(s) on the stack, but only " +
+                std::to_string(m_stack.size()) + " present"
+            );
+        }
+
+        ++m_pos; // consume IDENTIFIER
+
+        const ControlSignal sig = executeBlock(body);
+        if (sig == ControlSignal::Return) return; // RETURN inside word is weird, but we propagate
+        if (sig == ControlSignal::Break || sig == ControlSignal::Continue) {
+            m_controlSignal = sig;
+        }
+
+        return;
+    }
+
+    // Native Word
+    if (const auto itNative = m_nativeWords.find(name); itNative != m_nativeWords.end()) {
+        auto&[arity, fn] = itNative->second;
+
+        if (arity > 0 && static_cast<int>(m_stack.size()) < arity) {
+            throw std::runtime_error(
+                "[ERROR]: Native word '" + name + "' expects " +
+                std::to_string(arity) + " argument(s) on the stack, but only " +
+                std::to_string(m_stack.size()) + " present"
+            );
+        }
+
+        ++m_pos; // consume identifier
+
+        const ControlSignal sig = fn(*this);
+        if (sig == ControlSignal::Return) return;
+        if (sig == ControlSignal::Break || sig == ControlSignal::Continue) {
+            m_controlSignal = sig;
+        }
+        return;
+    }
+
+    //Nothing matched
+    throw std::runtime_error("[ERROR]: Unknown word '" + name + "'");
 }
 
 void Interpreter::executeBreak() {

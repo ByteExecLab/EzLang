@@ -23,7 +23,9 @@ add_executable(ezlang main.cpp
         compiler.cpp
         compiler.h
         Utils.cpp
-        Utils.h)
+        Utils.h
+        std/StdIo.cpp
+        std/StdIo.h)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     # Link libstdc++ and libgcc statically so you don't need those DLLs

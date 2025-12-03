@@ -1,6 +1,5 @@
 #include <fstream>
 #include <iostream>
-#include <sstream>
 #include <vector>
 #include <iomanip>
 #include <filesystem>
@@ -10,6 +9,9 @@
 #include "tokenizer.h"
 #include "Loader.h"
 #include "vm.h"
+
+// Std
+#include "std/StdIo.h"
 
 void dumpTokensFn(const std::vector<Token>& tokens) {
     std::cout << "==== TOKEN DUMP ====\n\n";
@@ -108,6 +110,10 @@ int main(int argc, char** argv) {
     // Normal execution path
     Stack stack;
     Interpreter interp(tokens, stack, source);
+
+    // Register
+    registerStdIo(interp);
+
     interp.execute();
 
     return 0;

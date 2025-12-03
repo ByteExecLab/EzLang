@@ -10,6 +10,8 @@
 #include "Stack.h"
 #include "tokenizer.h"
 
+class Interpreter;
+
 /**
  * @enum ControlSignal
  * @brief Indicates non-local control flow during block execution.
@@ -17,11 +19,11 @@
  * The `ControlSignal` enum is used internally by the interpreter to manage
  * structured control flow inside looping constructs. Certain tokens such
  * as `continue` and `break` do not behave like normal instructions; instead,
- * they alter execution flow of the nearest active loop.
+ * they alter the execution flow of the nearest active loop.
  *
  * When a block (such as the body of a `while` loop or an `if` branch)
  * is executed via `executeBlock(...)`, it may return a `ControlSignal`
- * to notify the caller of special flow redirection.
+ * to notify the caller of a special flow redirection.
  *
  * ### Signal Behaviors
  * | Value         | Meaning                                                                                  |
@@ -109,6 +111,11 @@ struct WordDef {
     int arity = 0; // Number of stack arguments required
 };
 
+struct NativeWord {
+    int arity = 0; // Number of stack arguments required
+    std::function<ControlSignal(Interpreter&)> fn;
+};
+
 struct Frame {
     // Local variables in this call frame
     std::unordered_map<std::string, StackValue> locals;
@@ -129,6 +136,20 @@ public:
      * @param source
      */
     explicit Interpreter(std::vector<Token> tokens, Stack stack, std::string source);
+
+    void registerNativeWord(const std::string& name, int arity, std::function<ControlSignal(Interpreter&)> fn);
+
+    /**
+     * Pushes a value onto the stack managed by the Interpreter.
+     *
+     * This method takes a single value and pushes it onto the stack,
+     * ensuring that the stack maintains the sequence of operations
+     * as needed during interpretation.
+     *
+     * @param value The value to be pushed onto the stack. It is provided
+     * as a constant reference to avoid unnecessary copying.
+     */
+    void executePush(const StackValue &value);
 
 
     /**
@@ -701,18 +722,6 @@ private:
      * - `executeBlock()` — propagates `ControlSignal` values up the call stack
      */
     void executeContinue();
-
-    /**
-     * Pushes a value onto the stack managed by the Interpreter.
-     *
-     * This method takes a single value and pushes it onto the stack,
-     * ensuring that the stack maintains the sequence of operations
-     * as needed during interpretation.
-     *
-     * @param value The value to be pushed onto the stack. It is provided
-     * as a constant reference to avoid unnecessary copying.
-     */
-    void executePush(const StackValue &value);
 
     /**
      * Executes a string literal token and pushes its value onto the stack.
@@ -2031,6 +2040,8 @@ private:
 
     // Call stack frames
     std::vector<Frame> m_frames;
+
+    std::unordered_map<std::string, NativeWord> m_nativeWords;
 };
 
 #endif //LEXER_H
