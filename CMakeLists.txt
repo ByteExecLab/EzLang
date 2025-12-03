@@ -27,7 +27,9 @@ add_executable(ezlang main.cpp
         std/StdIo.cpp
         std/StdIo.h)
 
-if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    # Link libstdc++ and libgcc statically so you don't need those DLLs
-    target_link_options(ezlang PRIVATE -static -static-libstdc++ -static-libgcc)
+
+option(EZLANG_STATIC "Link ezlang statically" OFF)
+
+if(EZLANG_STATIC)
+    target_link_options(ezlang PRIVATE -static)
 endif()

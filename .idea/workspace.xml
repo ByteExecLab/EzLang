@@ -29,13 +29,8 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e879248a-9567-47e7-b0a3-b9d5f6463c05" name="Changes" comment="Clean Up">
-      <change afterPath="$PROJECT_DIR$/std/StdIo.cpp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/std/StdIo.h" afterDir="false" />
+    <list default="true" id="e879248a-9567-47e7-b0a3-b9d5f6463c05" name="Changes" comment="Load standard library">
       <change beforePath="$PROJECT_DIR$/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/CMakeLists.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Interpreter.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Interpreter.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Interpreter.h" beforeDir="false" afterPath="$PROJECT_DIR$/Interpreter.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/main.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -183,7 +178,7 @@
       <workItem from="1763878520538" duration="35341000" />
       <workItem from="1764482816136" duration="24785000" />
       <workItem from="1764660135439" duration="4773000" />
-      <workItem from="1764744483660" duration="7866000" />
+      <workItem from="1764744483660" duration="8324000" />
     </task>
     <task id="LOCAL-00001" summary="Ignore Linux line endings">
       <option name="closed" value="true" />
@@ -449,7 +444,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764698029329</updated>
     </task>
-    <option name="localTasksCounter" value="34" />
+    <task id="LOCAL-00034" summary="Load standard library">
+      <option name="closed" value="true" />
+      <created>1764772772777</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1764772772777</updated>
+    </task>
+    <option name="localTasksCounter" value="35" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -472,7 +475,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Finish &amp; solidify control flow. IF/ELSE/ENDIF" />
     <MESSAGE value="All a temporary test runner" />
     <MESSAGE value="remove github actions" />
     <MESSAGE value="Improve error display" />
@@ -497,7 +499,8 @@
     <MESSAGE value="Implement basic VM" />
     <MESSAGE value="Implement local variables" />
     <MESSAGE value="Clean Up" />
-    <option name="LAST_COMMIT_MESSAGE" value="Clean Up" />
+    <MESSAGE value="Load standard library" />
+    <option name="LAST_COMMIT_MESSAGE" value="Load standard library" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
