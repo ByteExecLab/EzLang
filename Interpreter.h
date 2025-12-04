@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 #include "Memory.h"
 #include "Stack.h"

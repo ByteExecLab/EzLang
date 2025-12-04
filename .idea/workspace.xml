@@ -29,10 +29,7 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e879248a-9567-47e7-b0a3-b9d5f6463c05" name="Changes" comment="Re-implement variable creation, loading and update">
-      <change beforePath="$PROJECT_DIR$/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/CMakeLists.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Tokenizer.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Tokenizer.cpp" afterDir="false" />
-    </list>
+    <list default="true" id="e879248a-9567-47e7-b0a3-b9d5f6463c05" name="Changes" comment="Add #include &lt;algorithm&gt; header" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -180,7 +177,7 @@
       <workItem from="1763878520538" duration="35341000" />
       <workItem from="1764482816136" duration="24785000" />
       <workItem from="1764660135439" duration="4773000" />
-      <workItem from="1764744483660" duration="32740000" />
+      <workItem from="1764744483660" duration="33469000" />
     </task>
     <task id="LOCAL-00001" summary="Ignore Linux line endings">
       <option name="closed" value="true" />
@@ -486,7 +483,23 @@
       <option name="project" value="LOCAL" />
       <updated>1764876471213</updated>
     </task>
-    <option name="localTasksCounter" value="39" />
+    <task id="LOCAL-00039" summary="Enable Linux and Windows builds">
+      <option name="closed" value="true" />
+      <created>1764876846651</created>
+      <option name="number" value="00039" />
+      <option name="presentableId" value="LOCAL-00039" />
+      <option name="project" value="LOCAL" />
+      <updated>1764876846651</updated>
+    </task>
+    <task id="LOCAL-00040" summary="Add #include &lt;algorithm&gt; header">
+      <option name="closed" value="true" />
+      <created>1764878426961</created>
+      <option name="number" value="00040" />
+      <option name="presentableId" value="LOCAL-00040" />
+      <option name="project" value="LOCAL" />
+      <updated>1764878426961</updated>
+    </task>
+    <option name="localTasksCounter" value="41" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -509,8 +522,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Implement functions/words" />
-    <MESSAGE value="Implement word/function arguments" />
     <MESSAGE value="Cleanup Interpreter.h" />
     <MESSAGE value="Add a simple word test" />
     <MESSAGE value="Implement 'return' keyword" />
@@ -534,7 +545,9 @@
     <MESSAGE value="File rename failure fix" />
     <MESSAGE value="Fix linux build failure" />
     <MESSAGE value="Re-implement variable creation, loading and update" />
-    <option name="LAST_COMMIT_MESSAGE" value="Re-implement variable creation, loading and update" />
+    <MESSAGE value="Enable Linux and Windows builds" />
+    <MESSAGE value="Add #include &lt;algorithm&gt; header" />
+    <option name="LAST_COMMIT_MESSAGE" value="Add #include &lt;algorithm&gt; header" />
   </component>
   <component name="XDebuggerManager">
     <watches-manager>
