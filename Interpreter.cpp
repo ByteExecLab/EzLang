@@ -7,6 +7,7 @@
 #include <variant>
 #include <type_traits>
 #include <iomanip> // for std::setw, std::left
+#include <algorithm>
 
 #include "Utils.h"
 
