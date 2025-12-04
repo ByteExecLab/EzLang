@@ -29,14 +29,9 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e879248a-9567-47e7-b0a3-b9d5f6463c05" name="Changes" comment="Fix linux build failure">
-      <change afterPath="$PROJECT_DIR$/.idea/easycode.ignore" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/easycode/codebase-v2.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    <list default="true" id="e879248a-9567-47e7-b0a3-b9d5f6463c05" name="Changes" comment="Re-implement variable creation, loading and update">
       <change beforePath="$PROJECT_DIR$/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/CMakeLists.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Interpreter.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Interpreter.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Interpreter.h" beforeDir="false" afterPath="$PROJECT_DIR$/Interpreter.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Tokenizer.h" beforeDir="false" afterPath="$PROJECT_DIR$/Tokenizer.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Tokenizer.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Tokenizer.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -185,7 +180,7 @@
       <workItem from="1763878520538" duration="35341000" />
       <workItem from="1764482816136" duration="24785000" />
       <workItem from="1764660135439" duration="4773000" />
-      <workItem from="1764744483660" duration="32358000" />
+      <workItem from="1764744483660" duration="32740000" />
     </task>
     <task id="LOCAL-00001" summary="Ignore Linux line endings">
       <option name="closed" value="true" />
@@ -483,7 +478,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764797544641</updated>
     </task>
-    <option name="localTasksCounter" value="38" />
+    <task id="LOCAL-00038" summary="Re-implement variable creation, loading and update">
+      <option name="closed" value="true" />
+      <created>1764876471213</created>
+      <option name="number" value="00038" />
+      <option name="presentableId" value="LOCAL-00038" />
+      <option name="project" value="LOCAL" />
+      <updated>1764876471213</updated>
+    </task>
+    <option name="localTasksCounter" value="39" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -506,7 +509,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Delect misspelled keywords" />
     <MESSAGE value="Implement functions/words" />
     <MESSAGE value="Implement word/function arguments" />
     <MESSAGE value="Cleanup Interpreter.h" />
@@ -531,7 +533,8 @@
     <MESSAGE value="Implement platform specific basic IO operations for writing and reading STDIN and STDOUT" />
     <MESSAGE value="File rename failure fix" />
     <MESSAGE value="Fix linux build failure" />
-    <option name="LAST_COMMIT_MESSAGE" value="Fix linux build failure" />
+    <MESSAGE value="Re-implement variable creation, loading and update" />
+    <option name="LAST_COMMIT_MESSAGE" value="Re-implement variable creation, loading and update" />
   </component>
   <component name="XDebuggerManager">
     <watches-manager>

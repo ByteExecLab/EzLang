@@ -46,7 +46,6 @@ std::vector<Token> Tokenizer::tokenize() {
         {"nip", TokenType::NIP},
         {"tuck", TokenType::TUCK},
         {"drop", TokenType::DROP},
-        {"const", TokenType::CONST},
         {"print", TokenType::PRINT},
         {"if", TokenType::IF},
         {"and", TokenType::AND},
@@ -62,6 +61,11 @@ std::vector<Token> Tokenizer::tokenize() {
         {"break", TokenType::BREAK},
         {"return", TokenType::RETURN},
         {"word", TokenType::WORD},
+
+
+        // Variables
+        {"const", TokenType::CONST},
+        {"var", TokenType::VAR},
 
         // Locals
         {"let", TokenType::LET},
@@ -183,7 +187,23 @@ std::vector<Token> Tokenizer::tokenize() {
                 break;
             }
             case '@': {
-                m_tokens.emplace_back(TokenType::LOAD_VARIABLE, std::string{}, m_line, m_column);
+               // Skip whitespace after '@'
+                while (peek().has_value() && std::isspace(peek().value())) {
+                    consume();
+                }
+
+                if (!peek().has_value() || !std::isalpha(peek().value())) {
+                    std::cerr << "[LEXER][ERROR]: Expected identifier after '@' at line " << m_line << ", column " << m_column << "\n";
+                    printErrorContext();
+                    std::exit(EXIT_FAILURE);
+                }
+
+                std::string name;
+                while (peek().has_value() && std::isalnum(peek().value())) {
+                    name += consume();
+                }
+
+                m_tokens.emplace_back(TokenType::LOAD_VARIABLE, name, m_line, m_column);
                 break;
             }
             // --- String literal ---

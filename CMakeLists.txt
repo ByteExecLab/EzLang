@@ -30,14 +30,20 @@ add_executable(ezlang main.cpp
         std/platfrom_io.cpp)
 
 
-if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    # Link libstdc++ and libgcc statically so you don't need those DLLs
-    target_link_options(ezlang PRIVATE -static -static-libstdc++ -static-libgcc)
-endif()
+# Option for Linux static build
+option(EZLANG_STATIC "Link ezlang statically (mainly for Linux builds)" OFF)
 
-#option(EZLANG_STATIC "Link ezlang statically" OFF)
-#
-#if(EZLANG_STATIC)
-#    target_link_options(ezlang PRIVATE -static)
-#endif()
+# Platform-specific linking
+if (WIN32)
+    # Windows build (MinGW / GCC)
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        # Link libstdc++ and libgcc statically so you don't need those DLLs
+        target_link_options(ezlang PRIVATE -static -static-libstdc++ -static-libgcc)
+    endif()
+elseif (UNIX)
+    # Linux build
+    if (EZLANG_STATIC)
+        target_link_options(ezlang PRIVATE -static)
+    endif()
+endif()
 
