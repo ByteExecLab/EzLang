@@ -59,7 +59,7 @@ Interpreter::Interpreter(std::vector<Token> tokens, Stack stack, std::string sou
         {TokenType::MOD, [this]() { executeBinary(TokenType::MOD); }},
 
         // Variables
-        {TokenType::CONST, [this]() { executeDefineVariable(); }},
+        // {TokenType::CONST, [this]() { executeDefineVariable(); }},
         { TokenType::IDENTIFIER, [this]() { executeIdentifier(); }},
 
         // Logical Operators
@@ -746,38 +746,46 @@ void Interpreter::executeWhile() {
     }
 }
 
+// TODO: Might need to be removed
 void Interpreter::executeDefineVariable() {
-    consume(TokenType::CONST, "Expected const before IDENTIFIER"); // Consume CONST token
+    //
+}
 
-    if (m_tokens[m_pos].type != TokenType::IDENTIFIER) {
-        throw std::runtime_error("Expected IDENTIFIER after CONST");
-    }
-    const auto variableName = GetStringOrThrow(m_tokens[m_pos].value);
-    consume(TokenType::IDENTIFIER, "Expected IDENTIFIER after CONST"); // Consume IDENTIFIER token
-
-    // Check if a variable has already been defined
-    if (m_variables.contains(variableName)) {
-        throw std::runtime_error("Variable already defined");
-    }
-
-    // Assign a memory address to the variable
-    const uint32_t address = m_nextAvailableMemoryAddress;
-    m_variables[variableName] = address;
-    m_nextAvailableMemoryAddress += sizeof(StackValue);
-
-    if (m_pos >= m_tokens.size() || m_tokens[m_pos].type != TokenType::END) {
-        throw std::runtime_error("Expected END after identifier in CONST definition");
-    }
-
+void Interpreter::defineVariable(const bool isConst) {
+    // Stack: [..., initialValue]
     if (m_stack.empty()) {
-        throw std::runtime_error("Stack underflow for variable definition");
+        throw std::runtime_error("[INTERPRETER][ERROR]: Cannot define a variable: stack is empty");
     }
 
-    // POP value from the stack
-    const StackValue value = m_stack.pop();
-    m_memory.write(address, value);
+    // The next token must be identifier
+    const Token nameTok = consume(TokenType::IDENTIFIER, "[INTERPRETER][ERROR]: Expected identifier after const/var");
+    const auto& name = std::get<std::string>(nameTok.value);
 
-    consume(TokenType::END, "[ERROR]: Expected END after variable declaration"); // Consume END
+    if (m_variables.contains(name)) {
+        throw std::runtime_error("[INTERPRETER][ERROR]: Variable '" + name + "' has already been defined");
+    }
+
+    // Pop the initial value from the stack
+    const StackValue initial = m_stack.pop();
+
+    // Allocate memory
+    const uint32_t addr = m_nextAvailableMemoryAddress++;
+    m_memory.write(addr, initial);
+
+    m_variables[name] = VariableData{
+        .address = addr,
+        .isConst = isConst
+    };
+}
+
+void Interpreter::executeDefineConst() {
+    consume(TokenType::CONST, "[INTERPRETER][ERROR]: expected const");
+    defineVariable(true);
+}
+
+void Interpreter::executeDefineVar() {
+    consume(TokenType::VAR, "[INTERPRETER][ERROR]: expected var");
+    defineVariable(false);
 }
 
 void Interpreter::registerNativeWord(const std::string &name, const int arity, std::function<ControlSignal(Interpreter &)> fn) {
@@ -816,17 +824,6 @@ void Interpreter::executeIdentifier() {
     const Token& identToken = m_tokens[m_pos];
     const std::string name = std::get<std::string>(identToken.value);
 
-    // Variable load/store shortcut
-    const auto next = peek(1);
-    if (next && next->type == TokenType::LOAD_VARIABLE) {
-        executeLoadVariable();
-        return;
-    }
-    if (next && next->type == TokenType::STORE_VARIABLE) {
-        executeStoreVariable();
-        return;
-    }
-
     // User-defined word
     if (const auto itUser = m_words.find(name); itUser != m_words.end()) {
         const auto&[body, arity] = itUser->second;
@@ -847,6 +844,17 @@ void Interpreter::executeIdentifier() {
             m_controlSignal = sig;
         }
 
+        return;
+    }
+
+    // Variable load/store shortcut
+    const auto next = peek(1);
+    if (next && next->type == TokenType::LOAD_VARIABLE) {
+        executeLoadVariable();
+        return;
+    }
+    if (next && next->type == TokenType::STORE_VARIABLE) {
+        executeStoreVariable();
         return;
     }
 
@@ -891,19 +899,17 @@ void Interpreter::executeReturn() {
 }
 
 void Interpreter::executeLoadVariable() {
-    const auto variableName = std::get<std::string>(m_tokens[m_pos].value);
-    consume(TokenType::IDENTIFIER, "Expected IDENTIFIER before @"); // consume IDENTIFIER
+    const Token nameTok = consume(TokenType::LOAD_VARIABLE, "[INTERPRETER][ERROR]: Expected '@' before identifier");
+    const auto& name = std::get<std::string>(nameTok.value);
 
-    if (m_variables.contains(variableName)) {
-        const uint32_t address = m_variables[variableName];
-        const StackValue value = m_memory.read(address);
-        m_stack.push(value);
-    }
-    else {
-        throw std::runtime_error("Variable not defined");
+    const auto it = m_variables.find(name);
+    if (it == m_variables.end()) {
+        throw std::runtime_error("[INTERPRETER][ERROR]: Undefined variable '" + name + "'");
     }
 
-    consume(TokenType::LOAD_VARIABLE, "Expected @ after IDENTIFIER"); // consume END
+    const auto&[address, isConst] = it->second;
+    const StackValue value = m_memory.read(address);
+    m_stack.push(value);
 }
 
 void Interpreter::executeAnd() {
@@ -1175,23 +1181,27 @@ void Interpreter::executeStructAccess() {
 
 void Interpreter::executeStoreVariable() {
     if (m_stack.empty()) {
-        throw std::runtime_error("Stack underflow for variable store");
+        throw std::runtime_error("[INTERPRETER][ERROR]: Cannot store variable: Stack is empty");
     }
 
-    const auto variableName = std::get<std::string>(m_tokens[m_pos].value);
-    consume(TokenType::IDENTIFIER, "Expected IDENTIFIER before !. Got: " + tokenTypeToString(m_tokens[m_pos].type)); // consume IDENTIFIER
+    // Consume '!' (STORE_VARIABLE)
+    consume();
 
-    // TODO: Check type before storing
-    if (m_variables.contains(variableName)) {
-        const uint32_t address = m_variables[variableName];
-        const StackValue value = m_stack.pop();
-        m_memory.write(address, value);
-    }
-    else {
-        throw std::runtime_error("[INTERPRETER][ERROR]: Variable not defined");
+    const Token nameTok = consume(TokenType::IDENTIFIER, "[INTERPRETER][ERROR]: Expected identifier before '!'");
+    const auto& name = std::get<std::string>(nameTok.value);
+
+    const auto it = m_variables.find(name);
+    if (it == m_variables.end()) {
+        throw std::runtime_error("[INTERPRETER][ERROR]: Undefined variable '" + name + "'");
     }
 
-    consume(TokenType::STORE_VARIABLE, "[INTERPRETER][ERROR]: Expected ! after IDENTIFIER. Got: " + tokenTypeToString(m_tokens[m_pos].type)); // consume END
+    auto&[address, isConst] = it->second;
+    if (isConst) {
+        throw std::runtime_error("[INTERPRETER][ERROR]: Cannot assign to const '" + name + "'");
+    }
+
+    const StackValue value = m_stack.pop();
+    m_memory.write(address, value);
 }
 
 void Interpreter::executeLet() {
@@ -1461,6 +1471,23 @@ ControlSignal Interpreter::executeSingleToken() {
             return m_controlSignal;
         }
 
+        // Variables
+        case TokenType::CONST: {
+            executeDefineConst();
+            return ControlSignal::None;
+        }
+        case TokenType::VAR: {
+            executeDefineVar();
+            return ControlSignal::None;
+        }
+        case TokenType::LOAD_VARIABLE: {
+            executeLoadVariable();
+            return ControlSignal::None;
+        }
+        case TokenType::STORE_VARIABLE: {
+            executeStoreVariable();
+            return ControlSignal::None;
+        }
         // logical ops:
         case TokenType::AND: {
             executeAnd();

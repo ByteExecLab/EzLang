@@ -69,6 +69,12 @@ struct BlockFrame {
     bool sawElse = false;  // only used for IF
 };
 
+
+struct VariableData {
+    uint32_t address;   // Memory Address
+    bool isConst;       // true = immutable
+};
+
 /**
  * @struct WordDef
  * @brief Represents a user-defined word (function) in the EzLang interpreter.
@@ -911,6 +917,11 @@ private:
      * defined, or if the token sequence is invalid for defining a variable.
      */
     void executeDefineVariable();
+
+    void defineVariable(bool isConst);
+
+    void executeDefineConst();
+    void executeDefineVar();
 
     /**
      * @brief Executes an identifier token, typically representing a user-defined word.
@@ -1885,7 +1896,7 @@ private:
      * with its current value (as an unsigned 32-bit integer). The map is used
      * for variable lookups, assignments, and related operations during program execution.
      */
-    std::map<std::string, uint32_t> m_variables;
+    std::map<std::string, VariableData> m_variables;
 
     /**
      * A shared pointer to the internal execution stack of the interpreter.

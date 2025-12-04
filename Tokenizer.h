@@ -15,8 +15,8 @@ enum class TokenType: uint8_t {
     // System
     PRINT, INT_LITERAL, STR_LITERAL, BOOL_LITERAL, IDENTIFIER, FLOAT_LITERAL, NIL_LITERAL,
 
-    //
-    CONST, LOAD_VARIABLE, STORE_VARIABLE,
+    // Variables
+    CONST, VAR, LOAD_VARIABLE, STORE_VARIABLE,
 
     // Locals
     LET,
@@ -270,6 +270,7 @@ inline std::string tokenTypeToString(const TokenType type) {
         //
         {TokenType::IDENTIFIER, "IDENTIFIER"},
         {TokenType::CONST, "CONST"},
+        {TokenType::VAR, "VAR"},
         {TokenType::LOAD_VARIABLE, "LOAD_VARIABLE"},
         //
         {TokenType::PRINT, "PRINT"},
