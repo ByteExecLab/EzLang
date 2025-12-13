@@ -144,6 +144,9 @@ public:
      */
     explicit Interpreter(std::vector<Token> tokens, Stack stack, std::string source);
 
+    /**
+     *
+     */
     void registerNativeWord(const std::string& name, int arity, std::function<ControlSignal(Interpreter&)> fn);
 
     Stack& stack();
