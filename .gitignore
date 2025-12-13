@@ -11,3 +11,11 @@ CTestTestfile.cmake
 _deps
 CMakeUserPresets.json
 cmake-build-debug
+build
+.cmake/
+
+.venv/
+venv/
+env/
+.idea
+.vscode/
