@@ -15,7 +15,7 @@ namespace {
         const auto absPath = std::filesystem::absolute(path);
         const std::string key = absPath.string();
 
-        if (seen.count(key)) {
+        if (seen.contains(key)) {
             std::cerr << "[ERROR]: Detected recursive include of file: " << key << "\n";
             std::exit(EXIT_FAILURE);
         }
@@ -66,7 +66,7 @@ namespace {
 
         return out.str();
     }
-} // Anonymus namespace
+} // Anonymous namespace
 
 std::string loadSourceWithIncludes(const std::filesystem::path& path) {
     std::unordered_set<std::string> seen;

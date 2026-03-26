@@ -18,7 +18,7 @@ namespace platform_io {
 
 #ifdef _WIN32
     std::optional<std::string> read_line() {
-        HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+        const HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
         if (hIn == INVALID_HANDLE_VALUE) {
             return std::nullopt;
         }

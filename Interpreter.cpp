@@ -134,11 +134,11 @@ bool Interpreter::toBool(const StackValue &v) {
 
 double Interpreter::toDouble(const StackValue &v) {
     if (std::holds_alternative<int>(v)) {
-        return static_cast<double>(std::get<int>(v));
+        return std::get<int>(v);
     }
 
     if (std::holds_alternative<double>(v)) {
-        return static_cast<double>(std::get<double>(v));
+        return std::get<double>(v);
     }
 
     if (std::holds_alternative<bool>(v)) {
@@ -473,14 +473,14 @@ void Interpreter::executeBinary(const TokenType tokenType) {
             }
 
             if (bothInt(l_value, r_value)) {
-                int a = std::get<int>(l_value);
-                int b = std::get<int>(r_value);
+                const int a = std::get<int>(l_value);
+                const int b = std::get<int>(r_value);
 
                 // Left - Right
                 result = a - b;
             } else {
-                double a = toDouble(l_value);
-                double b = toDouble(r_value);
+                const double a = toDouble(l_value);
+                const double b = toDouble(r_value);
                 result = a - b;
             }
 
@@ -495,13 +495,13 @@ void Interpreter::executeBinary(const TokenType tokenType) {
             }
 
             if (bothInt(l_value, r_value)) {
-                int a = std::get<int>(l_value);
-                int b = std::get<int>(r_value);
+                const int a = std::get<int>(l_value);
+                const int b = std::get<int>(r_value);
 
                 result = a * b;
             } else {
-                double a = toDouble(l_value);
-                double b = toDouble(r_value);
+                const double a = toDouble(l_value);
+                const double b = toDouble(r_value);
 
                 result = a * b;
             }
@@ -516,8 +516,8 @@ void Interpreter::executeBinary(const TokenType tokenType) {
                 throw std::runtime_error("[ERROR]: Mismatched types for / operation");
             }
 
-            double a = toDouble(l_value);
-            double b = toDouble(r_value);
+            const double a = toDouble(l_value);
+            const double b = toDouble(r_value);
 
             if (b == 0.0) {
                 throw std::runtime_error("[ERROR]: Division by zero");

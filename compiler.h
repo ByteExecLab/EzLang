@@ -10,7 +10,7 @@
 
 class compiler {
 public:
-    BytecodeProgram compileToBytecode(const std::vector<Token>& tokens);
+    static BytecodeProgram compileToBytecode(const std::vector<Token>& tokens);
 };
 
 
