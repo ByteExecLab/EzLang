@@ -3,7 +3,9 @@
 #include <iostream>
 #include <unordered_map>
 
-Tokenizer::Tokenizer(std::string source): m_source(std::move(source)) {}
+#include "EzError.h"
+
+Tokenizer::Tokenizer(std::string source, std::string moduleName): m_source(std::move(source)), m_moduleName(std::move(moduleName)) {}
 
 auto Tokenizer::readNumber(std::string prefix = "") {
     std::string num = std::move(prefix);
@@ -30,9 +32,7 @@ auto Tokenizer::readNumber(std::string prefix = "") {
             m_tokens.emplace_back(TokenType::INT_LITERAL, std::stoi(num));
         }
     } catch (const std::exception& e) {
-        std::cerr << "Number parsing error: " << e.what() << std::endl;
-        printErrorContext();
-        std::exit(EXIT_FAILURE);
+        throwTokenizeError("[LEXER][ERROR]: Number parsing error: " +  std::string(e.what()), m_line, m_column);
     }
 }
 
@@ -193,9 +193,7 @@ std::vector<Token> Tokenizer::tokenize() {
                 }
 
                 if (!peek().has_value() || !std::isalpha(peek().value())) {
-                    std::cerr << "[LEXER][ERROR]: Expected identifier after '@' at line " << m_line << ", column " << m_column << "\n";
-                    printErrorContext();
-                    std::exit(EXIT_FAILURE);
+                    throwTokenizeError("[LEXER][ERROR]: Expected identifier after '@'", m_line, m_column);
                 }
 
                 std::string name;
@@ -221,10 +219,7 @@ std::vector<Token> Tokenizer::tokenize() {
                     m_tokens.emplace_back(TokenType::STR_LITERAL, buf, startLine, startColumn);
                     buf.clear();
                 } else {
-                    std::cerr << "Error at line " << m_line << ", column " << m_column
-                              << ": Unterminated string literal" << std::endl;
-                    printErrorContext();
-                    std::exit(EXIT_FAILURE);
+                    throwTokenizeError("[LEXER][ERROR]: Unterminated string literal", m_line, m_column);
                 }
                 break;
             }
@@ -265,10 +260,7 @@ std::vector<Token> Tokenizer::tokenize() {
                     readNumber(std::move(prefix));
                 }
                 else {
-                    std::cerr << "Error at line " << m_line << ", column " << m_column
-                              << ": Unexpected character '" << c << "'\n";
-                    printErrorContext();
-                    std::exit(EXIT_FAILURE);
+                    throwTokenizeError("[LEXER][ERROR]: Unexpected character", m_line, m_column);
                 }
             }
         }
@@ -295,19 +287,40 @@ char Tokenizer::consume() {
     return c;
 }
 
-void Tokenizer::printErrorContext() const {
-    size_t line_start = m_pos;
-    while (line_start > 0 && m_source[line_start-1] != '\n') {
-        line_start--;
+std::string Tokenizer::buildErrorContext(const size_t line, const size_t column) const {
+    size_t idx = 0;
+    size_t currentLine = 1;
+
+    while (currentLine < line && idx < m_source.size()) {
+        if (m_source[idx] == '\n') {
+            currentLine++;
+        }
+        idx++;
     }
-    size_t line_end = m_pos;
-    while (line_end < m_source.size() && m_source[line_end] != '\n') {
-        line_end++;
+
+    const size_t lineStart = idx;
+    while (idx < m_source.size() && m_source[idx] != '\n') {
+        idx++;
     }
-    const std::string line_str = m_source.substr(line_start, line_end - line_start);
-    std::cerr << line_str << std::endl;
-    for (size_t i = 1; i < m_column; i++) std::cerr << " ";
-    std::cerr << "^" << std::endl;
+    const size_t lineEnd = idx;
+
+    const std::string lineStr = m_source.substr(lineStart, lineEnd - lineStart);
+
+    std::string out = "    " + lineStr + "\n    ";
+    for (size_t i = 1; i < column; ++i) {
+        out += ' ';
+    }
+    out += "^\n";
+    return out;
+}
+
+[[noreturn]] void Tokenizer::throwTokenizeError(const std::string& message,const size_t line, const size_t column) const {
+    throw EzException(EzError{
+        .phase = EzErrorPhase::Tokenize,
+        .message = message,
+        .location = EzSourceLocation{m_moduleName, line, column},
+        .snippet = buildErrorContext(line, column)
+    });
 }
 
 

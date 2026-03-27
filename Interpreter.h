@@ -142,7 +142,7 @@ public:
      * @param stack
      * @param source
      */
-    explicit Interpreter(std::vector<Token> tokens, Stack stack, std::string source);
+    explicit Interpreter(std::vector<Token> tokens, Stack stack, std::string source, std::string moduleName = "<memory>");
 
     /**
      *
@@ -198,6 +198,8 @@ public:
      * or unclosed. The error message includes the line and column numbers of the problem.
      */
     static void validateBlocks(const std::vector<Token>& tokens);
+
+    std::string buildRuntimeErrorContext(size_t line, size_t column) const;
 
     /**
      * @var executionMap
@@ -2054,6 +2056,8 @@ private:
      * @see Interpreter::executeBlock()
      */
     std::vector<size_t> m_structMarks;
+
+    std::string m_moduleName;
 
     // Call stack frames
     std::vector<Frame> m_frames;

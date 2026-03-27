@@ -139,7 +139,11 @@ public:
      *
      * @param source The source input string to be tokenized.
      */
-    explicit Tokenizer(std::string source);
+    explicit Tokenizer(std::string source, std::string moduleName = "<memory>");
+
+    std::string buildErrorContext(size_t line, size_t column) const;
+
+    [[noreturn]] void throwTokenizeError(const std::string& message, size_t line, size_t column) const;
 
     /**
      * Analyzes the input source string and converts it into a sequence of tokens.
@@ -169,6 +173,8 @@ private:
     [[nodiscard]]
     std::optional<char> peek(size_t offset = 0) const;
 
+    std::string m_moduleName;
+
 
     /**
      * Consumes the next character from the source string, advancing the current position.
@@ -180,20 +186,6 @@ private:
      * @return The character at the current position in the source string before it is advanced.
      */
     char consume();
-
-
-    /**
-     * Outputs the surrounding context of the current error in the input source.
-     *
-     * This method prints the line of source text where an error occurred,
-     * followed by a caret ('^') marking the specific column where the issue was detected.
-     * It aids in debugging by providing a visual representation of the error's location
-     * within the source input.
-     *
-     * This function makes use of internal position tracking (`m_pos`, `m_line`, and `m_column`)
-     * to extract and display the relevant portion of the source text associated with the error.
-     */
-    void printErrorContext() const;
 
     /**
      * Reads a numeric sequence from the input starting with an optional prefix.

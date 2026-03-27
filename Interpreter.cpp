@@ -8,10 +8,11 @@
 #include <type_traits>
 #include <iomanip> // for std::setw, std::left
 
+#include "EzError.h"
 #include "Utils.h"
 
-Interpreter::Interpreter(std::vector<Token> tokens, Stack stack, std::string source)
-    : m_source(std::move(source)), m_stack(std::move(stack)), m_tokens(std::move(tokens)), m_memory(1024) {
+Interpreter::Interpreter(std::vector<Token> tokens, Stack stack, std::string source, std::string moduleName)
+    : m_source(std::move(source)), m_stack(std::move(stack)), m_tokens(std::move(tokens)), m_memory(1024), m_moduleName(std::move(moduleName)) {
 
     // Global frame
     m_frames.emplace_back();
@@ -246,32 +247,6 @@ void Interpreter::validateBlocks(const std::vector<Token> &tokens) {
             ", column " + std::to_string(unclosed.startToken.column)
         );
     }
-}
-
-
-void Interpreter::printRuntimeErrorContext(const size_t line , const size_t column) const {
-    size_t idx = 0;
-    size_t currentLine = 1;
-
-    // Find start of the given line
-    while (currentLine < line && idx < m_source.size()) {
-        if (m_source[idx] == '\n') {
-            currentLine++;
-        }
-        idx++;
-    }
-
-    const size_t line_start = idx;
-    while (idx < m_source.size() && m_source[idx] != '\n') {
-        idx++;
-    }
-    const size_t line_end = idx;
-
-    const std::string lineStr = m_source.substr(line_start, line_end - line_start);
-    std::cerr << "    " << lineStr << "\n";
-    std::cerr << "    ";
-    for (size_t i = 1; i < column; ++i) std::cerr << " ";
-    std::cerr << "^\n";
 }
 
 // TODO: Move this to stack class
@@ -1535,8 +1510,10 @@ void Interpreter::execute() {
                 throw std::runtime_error(msg);
             }
         }
+        catch (const EzException&) {
+            throw;
+        }
         catch (const std::runtime_error& e) {
-            // Decide which position to report
             size_t reportPos = m_pos;
 
             if (m_errorPos != static_cast<size_t>(-1) &&
@@ -1544,39 +1521,59 @@ void Interpreter::execute() {
                 reportPos = m_errorPos;
                 }
 
-            std::cerr << "[ERROR]: Runtime error encountered!\n";
-            std::cerr << "Message      : " << e.what() << "\n";
-            std::cerr << "Current Pos  : " << reportPos << " / " << m_tokens.size() << "\n";
+            EzSourceLocation location{m_moduleName, 0, 0};
+            std::string snippet;
 
             if (reportPos < m_tokens.size()) {
                 const Token& token = m_tokens[reportPos];
-
-                std::cerr << "Line         : " << token.line << "\n";
-                std::cerr << "Column       : " << token.column << "\n";
-                std::cerr << "Token Type   : " << tokenTypeToString(token.type) << "\n";
-                std::cerr << "Token Value  : ";
-                if (std::holds_alternative<int>(token.value)) {
-                    std::cerr << std::get<int>(token.value) << "\n";
-                } else if (std::holds_alternative<double>(token.value)) {
-                    std::cerr << std::get<double>(token.value) << "\n";
-                } else if (std::holds_alternative<std::string>(token.value)) {
-                    std::cerr << std::get<std::string>(token.value) << "\n";
-                } else {
-                    std::cerr << "<none>\n";
-                }
-
-                printRuntimeErrorContext(token.line, token.column);
-            } else {
-                std::cerr << "Token        : <Position beyond token list>\n";
+                location.line = token.line;
+                location.column = token.column;
+                snippet = buildRuntimeErrorContext(token.line, token.column);
             }
 
-            // Reset error pos so the next error isn’t polluted
             m_errorPos = static_cast<size_t>(-1);
 
-            std::cerr << "Execution halted.\n";
-            std::exit(EXIT_FAILURE);
+            throw EzException(EzError{
+                .phase = EzErrorPhase::Runtime,
+                .message = e.what(),
+                .location = std::move(location),
+                .snippet = std::move(snippet)
+            });
         }
     }
+}
+
+std::string Interpreter::buildRuntimeErrorContext(const size_t line, const size_t column) const {
+    size_t idx = 0;
+    size_t currentLine = 1;
+
+    while (currentLine < line && idx < m_source.size()) {
+        if (m_source[idx] == '\n') {
+            currentLine++;
+        }
+        idx++;
+    }
+
+    const size_t lineStart = idx;
+    while (idx < m_source.size() && m_source[idx] != '\n') {
+        idx++;
+    }
+    const size_t lineEnd = idx;
+
+    const std::string lineStr = m_source.substr(lineStart, lineEnd - lineStart);
+
+    std::ostringstream out;
+    out << "    " << lineStr << "\n";
+    out << "    ";
+    for (size_t i = 1; i < column; ++i) {
+        out << ' ';
+    }
+    out << "^\n";
+    return out.str();
+}
+
+void Interpreter::printRuntimeErrorContext(const size_t line, const size_t column) const {
+    std::cerr << buildRuntimeErrorContext(line, column);
 }
 
 

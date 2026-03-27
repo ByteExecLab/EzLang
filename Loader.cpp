@@ -1,74 +1,99 @@
-//
-// Created by marek on 11/23/2025.
-//
-
 #include "Loader.h"
 
 #include <fstream>
-#include <iostream>
+#include <sstream>
 #include <unordered_set>
 
+#include "EzError.h"
+
 namespace {
+    [[noreturn]] void throwLoadError(const std::string& message, const std::string& module, size_t line = 0, size_t column = 0, const std::string& snippet = {}) {
+        throw EzException(EzError{
+            .phase = EzErrorPhase::Load,
+            .message = message,
+            .location = EzSourceLocation{module, line, column},
+            .snippet = snippet
+        });
+    }
 
-    std::string loadSourceWithIncludesImpl(const std::filesystem::path& path,
-                                           std::unordered_set<std::string>& seen) {
-        const auto absPath = std::filesystem::absolute(path);
-        const std::string key = absPath.string();
-
-        if (seen.contains(key)) {
-            std::cerr << "[ERROR]: Detected recursive include of file: " << key << "\n";
-            std::exit(EXIT_FAILURE);
-        }
-        seen.insert(key);
-
-        std::ifstream in(absPath);
+    std::string readFileText(const std::filesystem::path& path) {
+        std::ifstream in(path);
         if (!in) {
-            std::cerr << "[ERROR]: Could not open source file: " << key << "\n";
-            std::exit(EXIT_FAILURE);
+            throwLoadError("Could not open source file: " + path.string(), path.string());
         }
 
         std::ostringstream out;
-        std::string line;
-        const auto baseDir = absPath.parent_path();
+        out << in.rdbuf();
+        return out.str();
+    }
 
-        while (std::getline(in, line)) {
-            // Make a trimmed copy for directive detection
+    std::string expandIncludesImpl(const EzLoadedModule& module, const EzImportResolver& resolver, std::unordered_set<std::string>& activeStack) {
+        if (!activeStack.insert(module.moduleName).second) {
+            throwLoadError("Detected recursive include of file: " + module.moduleName, module.moduleName);
+        }
+
+        std::istringstream input(module.source);
+        std::ostringstream output;
+        std::string line;
+        size_t lineNumber = 0;
+
+        while (std::getline(input, line)) {
+            ++lineNumber;
+
             std::string trimmed = line;
-            // strip leading spaces/tabs
             trimmed.erase(0, trimmed.find_first_not_of(" \t"));
 
             if (!trimmed.empty() && trimmed[0] == '#') {
-                // We expect: # "path/to/file.ez"
-                auto firstQuote = trimmed.find('"');
-                auto secondQuote = std::string::npos;
-                if (firstQuote != std::string::npos) {
-                    secondQuote = trimmed.find('"', firstQuote + 1);
-                }
+                const auto firstQuote = trimmed.find('"');
+                const auto secondQuote = firstQuote == std::string::npos
+                    ? std::string::npos
+                    : trimmed.find('"', firstQuote + 1);
 
                 if (firstQuote == std::string::npos || secondQuote == std::string::npos) {
-                    std::cerr << "[ERROR]: Malformed include directive: " << line << "\n";
-                    std::exit(EXIT_FAILURE);
+                    throwLoadError(
+                        "Malformed include directive",
+                        module.moduleName,
+                        lineNumber,
+                        1,
+                        "    " + line + "\n    ^\n"
+                    );
                 }
 
-                const std::string includePathStr =
+                const std::string importPath =
                     trimmed.substr(firstQuote + 1, secondQuote - firstQuote - 1);
 
-                std::filesystem::path includePath = baseDir / includePathStr;
-
-                // Recursively load included file
-                out << loadSourceWithIncludesImpl(includePath, seen);
-                // Keep a newline boundary between files to preserve line structure
-                out << "\n";
+                EzLoadedModule imported = resolver(module.moduleName, importPath);
+                output << expandIncludesImpl(imported, resolver, activeStack);
+                output << "\n";
             } else {
-                out << line << "\n";
+                output << line << "\n";
             }
         }
 
-        return out.str();
+        activeStack.erase(module.moduleName);
+        return output.str();
     }
-} // Anonymous namespace
+}
 
-std::string loadSourceWithIncludes(const std::filesystem::path& path) {
-    std::unordered_set<std::string> seen;
-    return loadSourceWithIncludesImpl(path, seen);
+std::string expandIncludes(const EzLoadedModule& root, const EzImportResolver& resolver) {
+    std::unordered_set<std::string> activeStack;
+    return expandIncludesImpl(root, resolver, activeStack);
+}
+
+EzLoadedModule loadModuleFromFilesystem(const std::filesystem::path& path) {
+    const auto absPath = std::filesystem::absolute(path);
+    return EzLoadedModule{
+        .moduleName = absPath.string(),
+        .source = readFileText(absPath)
+    };
+}
+
+EzLoadedModule resolveModuleFromFilesystem(const std::string& fromModule, const std::string& importPath) {
+    const auto baseDir = std::filesystem::path(fromModule).parent_path();
+    const auto absPath = std::filesystem::absolute(baseDir / importPath);
+
+    return EzLoadedModule{
+        .moduleName = absPath.string(),
+        .source = readFileText(absPath)
+    };
 }

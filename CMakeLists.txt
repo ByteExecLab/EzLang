@@ -27,7 +27,10 @@ add_executable(ezlang main.cpp
         std/StdIo.cpp
         std/StdIo.h
         std/platform_io.h
-        std/platfrom_io.cpp)
+        std/platfrom_io.cpp
+        EzEngine.cpp
+        EzEngine.h
+        EzError.h)
 
 
 # Option for Linux static build
