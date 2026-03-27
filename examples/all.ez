@@ -1,0 +1,99 @@
+#"std/std_math.ez"
+
+"== EzLang Tour ==" sys-write-line
+
+"Literals" sys-write-line
+42 print
+3.14 print
+true print
+false print
+nil print
+"hello" print
+
+"Stack ops" sys-write-line
+1 2 dup print
+swap print
+print
+3 4 over print
+drop
+
+"Math and comparison" sys-write-line
+10 3 + print
+10 3 - print
+10 3 * print
+10 3 / print
+10 3 % print
+2 2 = print
+2 3 != print
+2 3 < print
+3 2 > print
+2 2 <= print
+3 3 >= print
+0 ? print
+
+"Logic" sys-write-line
+1 1 and print
+0 1 and print
+0 1 or print
+0 not print
+
+"Globals" sys-write-line
+100 var counter
+@counter print
+250 ! counter
+@counter print
+
+"Words and return" sys-write-line
+word classify 1
+    dup 0 < if
+        "negative" print
+        return
+    endif
+
+    dup 0 = if
+        "zero" print
+        return
+    endif
+
+    "positive" print
+end
+
+0 5 - classify
+0 classify
+7 classify
+
+"Loops" sys-write-line
+5 while dup 0 > do
+    dup 2 % 0 = if
+        1 -
+        continue
+    endif
+
+    dup print
+    dup 1 = if
+        break
+    endif
+    1 -
+end
+
+"Arrays" sys-write-line
+[ 10 20 30 ]
+dup array-len print
+dup 1 array-get print
+1 99 array-set
+dup 1 array-get print
+drop
+
+"Structs" sys-write-line
+{ "name" "EzLang" "year" 2026 }
+dup "name" struct-get print
+dup "year" . print
+"version" 1 struct-set
+dup "version" struct-get print
+drop
+
+"Native output" sys-write-line
+"done" sys-write-line
+
+"Includes" sys-write-line
+7 square print

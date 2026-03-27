@@ -809,8 +809,6 @@ void Interpreter::executeWordDefinition() {
         arity = std::get<int>(m_tokens[m_pos].value);
         consume(TokenType::INT_LITERAL, "Expected integer arity after word name");
     }
-
-    // 🔹 This now correctly handles nested while/if/endif/end
     std::vector<Token> body = collectBlockUntilEnd();
 
     WordDef def;

@@ -304,7 +304,7 @@ inline std::string tokenTypeToString(const TokenType type) {
         {TokenType::GREATER_THAN_EQUALS, "GREATER_THAN_EQUALS"},
         {TokenType::ZERO_CHECK, "ZERO_CHECK"},
 
-        // Local
+        // Frame/function based variable functions
         {TokenType::LET, "LET"},
         {TokenType::SET, "SET"},
 
