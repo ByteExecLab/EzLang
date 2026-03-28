@@ -37,6 +37,10 @@ That keeps the language postfix and word-oriented while making the host API feel
 - Reusable runtime state
 - Optional interpreter and VM backends
 
+## API Docs
+
+For the host-facing C++ API reference, see [docs/API.md](/D:/projects/tryit/ezlang/docs/API.md).
+
 ---
 
 ## Language Features
