@@ -157,7 +157,7 @@ auto runtime = engine.createRuntime(program, EzRuntimeLimits{
     .cancelRequested = {}
 });
 
-runtime.rawInterpreter().registerHostFunction(
+runtime.registerHostFunction(
     "host-add",
     2,
     [](const std::vector<StackValue>& args) {
@@ -168,7 +168,7 @@ runtime.rawInterpreter().registerHostFunction(
 );
 
 runtime.setGlobal("score", 42);
-runtime.initialize();
+runtime.pcallInitialize();
 
 auto values = runtime.callWord("update", { StackValue{1}, StackValue{2} });
 auto protectedCall = runtime.pcallWord("tick");
@@ -186,6 +186,7 @@ auto protectedCall = runtime.pcallWord("tick");
 - register low-level native words with `registerNativeWord(...)`
 - register easier host callbacks with `registerHostFunction(...)`
 - inject and read globals with `setGlobal(...)` and `getGlobal(...)`
+- protect top-level startup with `pcallInitialize(...)`
 - call script words repeatedly with `callWord(...)`
 - catch script failures without exceptions escaping the host by using `pcallWord(...)`
 

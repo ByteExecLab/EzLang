@@ -1,4 +1,5 @@
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -61,7 +62,7 @@ int main() {
             .cancelRequested = {}
         });
 
-        runtime.rawInterpreter().registerHostFunction(
+        runtime.registerHostFunction(
             "host-add",
             2,
             [](const std::vector<StackValue>& args) {
@@ -72,7 +73,14 @@ int main() {
         );
 
         runtime.setGlobal("score", 10);
-        runtime.initialize();
+        const EzCallResult initResult = runtime.pcallInitialize();
+        if (!initResult.ok) {
+            if (!initResult.error.has_value()) {
+                throw std::runtime_error("runtime initialization failed without an error");
+            }
+
+            throw EzException(*initResult.error);
+        }
 
         const auto square = runtime.callWord("square", {StackValue{5}});
         const auto score = runtime.callWord("readScore");

@@ -30,12 +30,20 @@ public:
               EzRuntimeLimits limits = {});
 
     void initialize();
+    EzCallResult pcallInitialize();
     [[nodiscard]] bool isInitialized() const;
 
     std::vector<StackValue> callWord(const std::string& name,
                                      const std::vector<StackValue>& args = {});
     EzCallResult pcallWord(const std::string& name,
                            const std::vector<StackValue>& args = {});
+
+    void registerNativeWord(const std::string& name,
+                            int arity,
+                            std::function<ControlSignal(Interpreter&)> fn);
+    void registerHostFunction(const std::string& name, int arity, EzHostFunction fn);
+    void pushUserData(std::shared_ptr<void> handle, std::string typeName);
+    void setRuntimeLimits(EzRuntimeLimits limits);
 
     [[nodiscard]] bool hasWord(const std::string& name) const;
     [[nodiscard]] bool hasGlobal(const std::string& name) const;

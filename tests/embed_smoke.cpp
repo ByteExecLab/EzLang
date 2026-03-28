@@ -59,7 +59,7 @@ int main() {
             .cancelRequested = {}
         });
 
-        runtime.rawInterpreter().registerHostFunction(
+        runtime.registerHostFunction(
             "host-add",
             2,
             [](const std::vector<StackValue>& args) {
@@ -77,9 +77,10 @@ int main() {
         require(requireInt(runtime.getGlobal("score"), "score before initialize") == 42,
                 "unexpected score before initialize");
 
-        runtime.initialize();
+        const EzCallResult initResult = runtime.pcallInitialize();
+        require(initResult.ok, "pcallInitialize should succeed");
+        require(runtime.isInitialized(), "runtime should be initialized after pcallInitialize");
 
-        require(runtime.isInitialized(), "runtime should be initialized");
         require(runtime.hasWord("square"), "square should exist after initialize");
 
         const auto square = runtime.callWord("square", {StackValue{5}});
@@ -112,6 +113,12 @@ int main() {
         )", "embed_smoke_loop.ez");
 
         EzRuntime limitedRuntime = engine.createRuntime(loopProgram, EzRuntimeLimits{
+            .instructionBudget = 1000,
+            .maxCallDepth = 32,
+            .cancelRequested = {}
+        });
+
+        limitedRuntime.setRuntimeLimits(EzRuntimeLimits{
             .instructionBudget = 50,
             .maxCallDepth = 32,
             .cancelRequested = {}
@@ -140,6 +147,18 @@ int main() {
         require(recurResult.error.has_value(), "recur should return an error");
         require(recurResult.error->message.find("Maximum call depth exceeded") != std::string::npos,
                 "recur should fail because of max call depth");
+
+        const auto startupFailProgram = engine.compile(R"(
+            missing-at-startup
+        )", "embed_smoke_startup_fail.ez");
+
+        EzRuntime startupFailRuntime = engine.createRuntime(startupFailProgram);
+        const auto startupFailResult = startupFailRuntime.pcallInitialize();
+        require(!startupFailResult.ok, "startup failure should be reported through pcallInitialize");
+        require(startupFailResult.error.has_value(), "pcallInitialize failure should include an error");
+        require(startupFailResult.error->message.find("Unknown word") != std::string::npos,
+                "startup failure should preserve the underlying runtime message");
+        require(!startupFailRuntime.isInitialized(), "failed initialization should not mark runtime initialized");
 
         std::cout << "embed smoke ok\n";
         return 0;

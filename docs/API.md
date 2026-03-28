@@ -15,6 +15,9 @@ The intended flow is:
 6. Initialize once
 7. Call words repeatedly
 
+In the current API, prefer `EzRuntime` methods first.
+Use `rawInterpreter()` only when you need lower-level access that has not been promoted yet.
+
 ## Core Types
 
 ### `EzCompiledProgram`
@@ -277,12 +280,20 @@ public:
               EzRuntimeLimits limits = {});
 
     void initialize();
+    EzCallResult pcallInitialize();
     [[nodiscard]] bool isInitialized() const;
 
     std::vector<StackValue> callWord(const std::string& name,
                                      const std::vector<StackValue>& args = {});
     EzCallResult pcallWord(const std::string& name,
                            const std::vector<StackValue>& args = {});
+
+    void registerNativeWord(const std::string& name,
+                            int arity,
+                            std::function<ControlSignal(Interpreter&)> fn);
+    void registerHostFunction(const std::string& name, int arity, EzHostFunction fn);
+    void pushUserData(std::shared_ptr<void> handle, std::string typeName);
+    void setRuntimeLimits(EzRuntimeLimits limits);
 
     [[nodiscard]] bool hasWord(const std::string& name) const;
     [[nodiscard]] bool hasGlobal(const std::string& name) const;
@@ -305,6 +316,19 @@ Use it to:
 - execute startup code
 
 Calling `initialize()` more than once is a no-op.
+
+#### `pcallInitialize()`
+
+Protected version of `initialize()`.
+
+Behavior:
+
+- runs top-level startup once
+- catches `EzException`
+- returns `EzCallResult` with no values on success
+- leaves `isInitialized()` false if startup fails
+
+Use this when a host wants to treat top-level chunk startup like a protected Lua-style call.
 
 #### `isInitialized()`
 
@@ -338,6 +362,31 @@ Behavior:
 - never throws on normal script failure
 
 This is the Lua-like embedding path to prefer in hosts.
+
+#### `registerNativeWord(...)`
+
+Registers a low-level native callback directly on the runtime.
+
+Use this when you want direct stack/interpreter access.
+
+#### `registerHostFunction(...)`
+
+Registers a higher-level host callback directly on the runtime.
+
+This is the preferred host-function registration path for most embeddings.
+
+#### `pushUserData(...)`
+
+Pushes userdata directly onto the underlying interpreter stack.
+
+This is a low-level helper and is mainly useful for stack-oriented host integrations.
+
+#### `setRuntimeLimits(...)`
+
+Replaces the runtime limits after construction and applies them immediately.
+
+This lets the host tighten or relax limits for future `initialize()`, `pcallInitialize()`,
+`callWord()`, or `pcallWord()` calls.
 
 #### `hasWord(...)`
 
@@ -373,11 +422,13 @@ Behavior:
 
 Advanced escape hatch for direct access to the underlying interpreter.
 
-Use this when you need APIs that are not yet surfaced directly on `EzRuntime`, such as:
+Use this when you need APIs that are not yet surfaced directly on `EzRuntime`.
 
-- `registerNativeWord(...)`
-- `registerHostFunction(...)`
-- `pushUserData(...)`
+Examples:
+
+- advanced stack inspection/manipulation
+- template helpers like `getUserData<T>(...)`
+- experimental interpreter-specific APIs
 
 Prefer the higher-level runtime API where possible.
 
@@ -531,8 +582,16 @@ EzRuntime runtime = engine.createRuntime(program, EzRuntimeLimits{
     .cancelRequested = {}
 });
 
+runtime.registerHostFunction(
+    "host-add",
+    2,
+    [](const std::vector<StackValue>& args) {
+        return std::vector<StackValue>{std::get<int>(args[0]) + std::get<int>(args[1])};
+    }
+);
+
 runtime.setGlobal("score", 42);
-runtime.initialize();
+runtime.pcallInitialize();
 
 auto square = runtime.callWord("square", { StackValue{5} });
 auto score = runtime.pcallWord("readScore");
@@ -544,7 +603,6 @@ These APIs are usable now, but still evolving.
 
 Areas likely to expand next:
 
-- more direct runtime methods so `rawInterpreter()` is needed less often
 - clearer module-environment API
 - better userdata convenience wrappers
 - stronger VM parity for the embedding path
