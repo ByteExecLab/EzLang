@@ -174,6 +174,9 @@ void VM::run() {
                 else {
                     throw std::runtime_error("[VM]: Mismatched types for 'MOD' operation");
                 }
+
+                advanceIP();
+                break;
             }
             // --------------------- PRINT ---------------------
             case OpCode::PRINT: {
@@ -182,21 +185,7 @@ void VM::run() {
                 }
 
                 const auto v = m_stack.pop();
-                std::visit([]<typename T0>(const T0& x) {
-                    using T = std::decay_t<T0>;
-                    if constexpr (std::is_same_v<T, std::monostate>) {
-                        std::cout << "nil";
-                    } else if constexpr (std::is_same_v<T, ArrayValue>) {
-                        std::cout << "<Array len=" << x.elements.size() << ">";
-                    } else if constexpr (std::is_same_v<T, StructValue>) {
-                        std::cout << "<Struct fields=" << x.fields.size() << ">";
-                    } else if constexpr (std::is_same_v<T, bool>) {
-                        std::cout << (x ? "true" : "false");
-                    } else {
-                        // int, double, std::string all have operator<<
-                        std::cout << x;
-                    }
-                }, v);
+                std::cout << Utils::toDisplayString(v);
                 std::cout << "\n";
                 ++m_ip;
                 break;

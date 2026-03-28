@@ -11,6 +11,8 @@
 #include "Tokenizer.h"
 
 class Interpreter;
+class EzRuntime;
+struct EzRuntimeLimits;
 
 struct EzCompiledProgram {
     std::string moduleName;
@@ -30,6 +32,8 @@ public:
     explicit EzEngine(EzEngineConfig config = {});
 
     [[nodiscard]] EzCompiledProgram compile(std::string source, std::string moduleName = "<memory>") const;
+    [[nodiscard]] EzRuntime createRuntime(const EzCompiledProgram& program) const;
+    [[nodiscard]] EzRuntime createRuntime(const EzCompiledProgram& program, const EzRuntimeLimits& limits) const;
 
     void runInterpreted(const EzCompiledProgram& program, const EzInterpreterSetup& extraSetup  = {}) const;
 

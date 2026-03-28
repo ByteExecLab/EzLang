@@ -3,6 +3,7 @@
 #include <functional>
 #include <iostream>
 #include <map>
+#include <sstream>
 #include <utility>
 #include <variant>
 #include <type_traits>
@@ -10,6 +11,34 @@
 
 #include "EzError.h"
 #include "Utils.h"
+
+namespace {
+    const EzTable& expectTable(const StackValue& value, const char* message) {
+        if (!std::holds_alternative<EzTablePtr>(value)) {
+            throw std::runtime_error(message);
+        }
+
+        const auto& table = std::get<EzTablePtr>(value);
+        if (!table) {
+            throw std::runtime_error(message);
+        }
+
+        return *table;
+    }
+
+    EzTable& expectTable(StackValue& value, const char* message) {
+        if (!std::holds_alternative<EzTablePtr>(value)) {
+            throw std::runtime_error(message);
+        }
+
+        const auto& table = std::get<EzTablePtr>(value);
+        if (!table) {
+            throw std::runtime_error(message);
+        }
+
+        return *table;
+    }
+}
 
 Interpreter::Interpreter(std::vector<Token> tokens, Stack stack, std::string source, std::string moduleName)
     : m_source(std::move(source)), m_stack(std::move(stack)), m_tokens(std::move(tokens)), m_memory(1024), m_moduleName(std::move(moduleName)) {
@@ -677,7 +706,6 @@ void Interpreter::executeWhile() {
     // consume(TokenType::END, "[ERROR]: Expected END after WHILE block");
 
     // Save outer signal so we don't leak inner loop control outwards
-    ControlSignal outerSignal = m_controlSignal;
     m_controlSignal = ControlSignal::None;
 
     while (true) {
@@ -767,8 +795,55 @@ void Interpreter::registerNativeWord(const std::string &name, const int arity, s
     m_nativeWords[name] = NativeWord{arity, std::move(fn)};
 }
 
+void Interpreter::registerHostFunction(const std::string& name, const int arity, EzHostFunction fn) {
+    registerNativeWord(name, arity, [arity, fn = std::move(fn)](Interpreter& interpreter) -> ControlSignal {
+        auto& st = interpreter.stack();
+        if (arity > 0 && static_cast<int>(st.size()) < arity) {
+            throw std::runtime_error(
+                "[ERROR]: Host function expects " + std::to_string(arity) +
+                " argument(s), but only " + std::to_string(st.size()) + " present"
+            );
+        }
+
+        std::vector<StackValue> args;
+        args.reserve(arity);
+        for (int i = 0; i < arity; ++i) {
+            args.push_back(st.pop());
+        }
+
+        std::reverse(args.begin(), args.end());
+
+        const auto outputs = fn(args);
+        for (const auto& value : outputs) {
+            st.push(value);
+        }
+
+        return ControlSignal::None;
+    });
+}
+
 Stack &Interpreter::stack() {
     return m_stack;
+}
+
+void Interpreter::setRuntimeLimits(const size_t instructionBudget,
+                                   const size_t maxCallDepth,
+                                   std::function<bool()> cancelRequested) {
+    m_instructionBudget = instructionBudget;
+    m_maxCallDepth = maxCallDepth;
+    m_cancelRequested = std::move(cancelRequested);
+}
+
+void Interpreter::resetRuntimeCounters() {
+    m_instructionCount = 0;
+    m_callDepth = 0;
+}
+
+void Interpreter::pushUserData(std::shared_ptr<void> handle, std::string typeName) {
+    m_stack.push(std::make_shared<EzUserData>(EzUserData{
+        .handle = std::move(handle),
+        .typeName = std::move(typeName)
+    }));
 }
 
 void Interpreter::executeWordDefinition() {
@@ -915,8 +990,7 @@ void Interpreter::executeArrayEnd() {
     // Reverse to restore left-to-right literal order
     std::reverse(elements.begin(), elements.end());
 
-    ArrayValue arr{std::move(elements)};
-    m_stack.push(StackValue{arr});
+    m_stack.push(std::make_shared<EzTable>(std::move(elements)));
 }
 
 void Interpreter::executeStructStart() {
@@ -935,30 +1009,42 @@ std::vector<StackValue> Interpreter::callWord(const std::string &name, const std
         m_stack.push(arg);
     }
 
-    ControlSignal sig = ControlSignal::None;
+    try {
+        ControlSignal sig = ControlSignal::None;
 
-    if (const auto itUser = m_words.find(name); itUser != m_words.end()) {
-        sig = invokeUserWord(name, itUser->second);
-    } else if (const auto itNative = m_nativeWords.find(name); itNative != m_nativeWords.end()) {
-        sig = invokeNativeWord(name, itNative->second);
-    } else {
-        throw std::runtime_error("[ERROR]: Unknown word '" + name + "'");
-    }
+        if (const auto itUser = m_words.find(name); itUser != m_words.end()) {
+            sig = invokeUserWord(name, itUser->second);
+        } else if (const auto itNative = m_nativeWords.find(name); itNative != m_nativeWords.end()) {
+            sig = invokeNativeWord(name, itNative->second);
+        } else {
+            throw std::runtime_error("[ERROR]: Unknown word '" + name + "'");
+        }
 
-    if (sig == ControlSignal::Break) {
-        throw std::runtime_error("[ERROR]: 'break' propagated out of word '" + name + "'");
-    }
-    if (sig == ControlSignal::Continue) {
-        throw std::runtime_error("[ERROR]: 'continue' propagated out of word '" + name + "'");
-    }
+        if (sig == ControlSignal::Break) {
+            throw std::runtime_error("[ERROR]: 'break' propagated out of word '" + name + "'");
+        }
+        if (sig == ControlSignal::Continue) {
+            throw std::runtime_error("[ERROR]: 'continue' propagated out of word '" + name + "'");
+        }
 
-    std::vector<StackValue> outputs;
-    while (m_stack.size() > stackBase) {
-        outputs.push_back(m_stack.pop());
-    }
+        std::vector<StackValue> outputs;
+        while (m_stack.size() > stackBase) {
+            outputs.push_back(m_stack.pop());
+        }
 
-    std::reverse(outputs.begin(), outputs.end());
-    return outputs;
+        std::reverse(outputs.begin(), outputs.end());
+        return outputs;
+    } catch (const EzException&) {
+        while (m_stack.size() > stackBase) {
+            m_stack.pop();
+        }
+        throw;
+    } catch (const std::runtime_error& e) {
+        while (m_stack.size() > stackBase) {
+            m_stack.pop();
+        }
+        throw makeRuntimeException(e.what());
+    }
 }
 
 void Interpreter::executeStructEnd() {
@@ -981,7 +1067,7 @@ void Interpreter::executeStructEnd() {
         throw std::runtime_error("[ERROR]: Struct literal expects key/value pairs (even number of stack items)");
     }
 
-    StructValue obj;
+    EzTable obj;
 
     // We pop value then key, in reverse of push order.
     for (size_t i = 0; i < count / 2; ++i) {
@@ -993,11 +1079,11 @@ void Interpreter::executeStructEnd() {
         }
 
         auto keyStr = std::get<std::string>(key);
-        obj.fields.emplace(std::move(keyStr), std::make_shared<StackValue>(std::move(value)));
+        obj.entries.emplace(EzTableKey{std::move(keyStr)}, std::make_shared<StackValue>(std::move(value)));
     }
 
     // Order doesn't matter because it's a map.
-    m_stack.push(StackValue{obj});
+    m_stack.push(std::make_shared<EzTable>(std::move(obj)));
 }
 
 void Interpreter::executeArrayLen() {
@@ -1009,12 +1095,8 @@ void Interpreter::executeArrayLen() {
 
     StackValue v = m_stack.pop();
 
-    if (!std::holds_alternative<ArrayValue>(v)) {
-        throw std::runtime_error("[ERROR]: array-len: expected array on stack");
-    }
-
-    const auto &arr = std::get<ArrayValue>(v);
-    int len = static_cast<int>(arr.elements.size());
+    const auto& arr = expectTable(v, "[ERROR]: array-len: expected table on stack");
+    const int len = static_cast<int>(arr.arrayEntryCount());
 
     // push length back
     m_stack.push(len);
@@ -1032,17 +1114,13 @@ void Interpreter::executeArrayGet() {
 
     const int idx = GetIntOrThrow(idxV);
 
-    if (!std::holds_alternative<ArrayValue>(arrV)) {
-        throw std::runtime_error("[ERROR]: array-get expects array under index");
-    }
-
-    const auto& arr = std::get<ArrayValue>(arrV);
-
-    if (idx < 0 || static_cast<size_t>(idx) >= arr.elements.size()) {
+    const auto& arr = expectTable(arrV, "[ERROR]: array-get expects table under index");
+    const auto it = arr.entries.find(EzTableKey{idx});
+    if (idx < 0 || it == arr.entries.end()) {
         throw std::runtime_error("[ERROR]: array-get index out of range");
     }
 
-    m_stack.push(*arr.elements[static_cast<size_t>(idx)]);
+    m_stack.push(*it->second);
 }
 
 
@@ -1055,23 +1133,19 @@ void Interpreter::executeArrayGet() {
 
     StackValue valueV = m_stack.pop();
     const StackValue idxV   = m_stack.pop();
-    const StackValue arrV   = m_stack.pop();
+    StackValue arrV   = m_stack.pop();
 
     const int idx = GetIntOrThrow(idxV);
 
-    if (!std::holds_alternative<ArrayValue>(arrV)) {
-        throw std::runtime_error("[ERROR]: array-set expects array under index/value");
-    }
-
-    auto arr = std::get<ArrayValue>(arrV); // copy
-
-    if (idx < 0 || static_cast<size_t>(idx) >= arr.elements.size()) {
+    auto& arr = expectTable(arrV, "[ERROR]: array-set expects table under index/value");
+    const auto it = arr.entries.find(EzTableKey{idx});
+    if (idx < 0 || it == arr.entries.end()) {
         throw std::runtime_error("[ERROR]: array-set index out of range");
     }
 
-    arr.elements[static_cast<size_t>(idx)] = std::make_shared<StackValue>(std::move(valueV));
+    arr.entries[EzTableKey{idx}] = std::make_shared<StackValue>(std::move(valueV));
 
-    m_stack.push(StackValue{std::move(arr)});
+    m_stack.push(arrV);
  }
 
 void Interpreter::executeStructGet() {
@@ -1087,15 +1161,11 @@ void Interpreter::executeStructGet() {
     if (!std::holds_alternative<std::string>(keyV)) {
         throw std::runtime_error("[ERROR]: struct-get expects string key");
     }
-    if (!std::holds_alternative<StructValue>(objV)) {
-        throw std::runtime_error("[ERROR]: struct-get expects struct under key");
-    }
-
     const std::string& key = std::get<std::string>(keyV);
-    const auto& obj = std::get<StructValue>(objV);
+    const auto& obj = expectTable(objV, "[ERROR]: struct-get expects table under key");
 
-    auto it = obj.fields.find(key);
-    if (it == obj.fields.end()) {
+    const auto it = obj.entries.find(EzTableKey{key});
+    if (it == obj.entries.end()) {
         m_stack.push(StackValue{std::monostate{}});
     } else {
         m_stack.push(*it->second);
@@ -1116,16 +1186,12 @@ void Interpreter::executeStructSet() {
     if (!std::holds_alternative<std::string>(keyV)) {
         throw std::runtime_error("[ERROR]: struct-set expects string key");
     }
-    if (!std::holds_alternative<StructValue>(objV)) {
-        throw std::runtime_error("[ERROR]: struct-set expects struct under key/value");
-    }
-
     auto key = std::get<std::string>(keyV);
-    auto obj = std::get<StructValue>(objV); // copy
+    auto& obj = expectTable(objV, "[ERROR]: struct-set expects table under key/value");
 
-    obj.fields[std::move(key)] = std::make_shared<StackValue>(std::move(valueV));
+    obj.entries[EzTableKey{std::move(key)}] = std::make_shared<StackValue>(std::move(valueV));
 
-    m_stack.push(StackValue{std::move(obj)});
+    m_stack.push(objV);
 }
 
 void Interpreter::executeStructAccess() {
@@ -1141,15 +1207,11 @@ void Interpreter::executeStructAccess() {
     if (!std::holds_alternative<std::string>(keyV)) {
         throw std::runtime_error("[ERROR]: '.' expects string key on top");
     }
-    if (!std::holds_alternative<StructValue>(objV)) {
-        throw std::runtime_error("[ERROR]: '.' expects struct under key");
-    }
-
     const std::string& key = std::get<std::string>(keyV);
-    const auto& obj = std::get<StructValue>(objV);
+    const auto& obj = expectTable(objV, "[ERROR]: '.' expects table under key");
 
-    auto it = obj.fields.find(key);
-    if (it == obj.fields.end()) {
+    const auto it = obj.entries.find(EzTableKey{key});
+    if (it == obj.entries.end()) {
         m_stack.push(StackValue{std::monostate{}});
     } else {
         m_stack.push(*it->second);
@@ -1224,21 +1286,32 @@ ControlSignal Interpreter::executeBlock(const std::vector<Token> &block) {
     m_pos = 0;
     m_controlSignal = ControlSignal::None;
 
-    auto result = ControlSignal::None;
+    try {
+        auto result = ControlSignal::None;
 
-    while (m_pos < m_tokens.size()) {
-        if (const ControlSignal sig = executeSingleToken(); sig != ControlSignal::None) {
-            result = sig;
-            break;
+        while (m_pos < m_tokens.size()) {
+            if (const ControlSignal sig = executeSingleToken(); sig != ControlSignal::None) {
+                result = sig;
+                break;
+            }
         }
+
+        m_tokens = oldTokens;
+        m_pos = oldPos;
+        m_controlSignal = oldControlSignal;
+        return result;
+    } catch (const EzException&) {
+        m_tokens = oldTokens;
+        m_pos = oldPos;
+        m_controlSignal = oldControlSignal;
+        throw;
+    } catch (const std::runtime_error& e) {
+        const auto wrapped = makeRuntimeException(e.what());
+        m_tokens = oldTokens;
+        m_pos = oldPos;
+        m_controlSignal = oldControlSignal;
+        throw wrapped;
     }
-
-    // Restore outer interpreter context
-    m_tokens = oldTokens;
-    m_pos = oldPos;
-    m_controlSignal = oldControlSignal;
-
-    return result;
 }
 
 bool Interpreter::isTruly(const StackValue &value) {
@@ -1258,13 +1331,17 @@ bool Interpreter::isTruly(const StackValue &value) {
         return std::get<double>(value) != 0.0; // Includes negative
     }
 
-    if (std::holds_alternative<double>(value)) {
-        return !std::get<std::string>(value).empty();
-    }
-
     if (std::holds_alternative<std::string>(value)) {
         const auto& s = std::get<std::string>(value);
         return !s.empty();
+    }
+
+    if (std::holds_alternative<EzTablePtr>(value)) {
+        return true;
+    }
+
+    if (std::holds_alternative<EzUserDataPtr>(value)) {
+        return true;
     }
 
     return false;
@@ -1377,13 +1454,28 @@ ControlSignal Interpreter::invokeUserWord(const std::string& name, const WordDef
         );
     }
 
-    const ControlSignal sig = executeBlock(def.body);
-
-    if (sig == ControlSignal::Return) {
-        return ControlSignal::None;
+    if (m_callDepth >= m_maxCallDepth) {
+        throw makeRuntimeException("[ERROR]: Maximum call depth exceeded");
     }
 
-    return sig;
+    pushFrame();
+    ++m_callDepth;
+
+    try {
+        const ControlSignal sig = executeBlock(def.body);
+        --m_callDepth;
+        popFrame();
+
+        if (sig == ControlSignal::Return) {
+            return ControlSignal::None;
+        }
+
+        return sig;
+    } catch (...) {
+        --m_callDepth;
+        popFrame();
+        throw;
+    }
 }
 
 ControlSignal Interpreter::invokeNativeWord(const std::string& name, NativeWord& def) {
@@ -1463,6 +1555,14 @@ void Interpreter::executeZeroCheck() {
 ControlSignal Interpreter::executeSingleToken() {
     if (m_pos >= m_tokens.size()) {
         return ControlSignal::None;
+    }
+
+    if (++m_instructionCount > m_instructionBudget) {
+        throw makeRuntimeException("[ERROR]: Instruction budget exceeded");
+    }
+
+    if (m_cancelRequested && m_cancelRequested()) {
+        throw makeRuntimeException("[ERROR]: Execution cancelled by host");
     }
 
     const Token& tok = m_tokens[m_pos];
@@ -1572,7 +1672,6 @@ void Interpreter::setGlobal(const std::string &name, const StackValue &value, bo
 
 void Interpreter::execute() {
     while (m_pos < m_tokens.size()) {
-        const Token& tok = m_tokens[m_pos];
         try {
             if (const ControlSignal signal = executeSingleToken(); signal == ControlSignal::Continue || signal == ControlSignal::Break || signal == ControlSignal::Return) {
                 // At the top level, these are illegal
@@ -1588,31 +1687,7 @@ void Interpreter::execute() {
             throw;
         }
         catch (const std::runtime_error& e) {
-            size_t reportPos = m_pos;
-
-            if (m_errorPos != static_cast<size_t>(-1) &&
-                m_errorPos < m_tokens.size()) {
-                reportPos = m_errorPos;
-                }
-
-            EzSourceLocation location{m_moduleName, 0, 0};
-            std::string snippet;
-
-            if (reportPos < m_tokens.size()) {
-                const Token& token = m_tokens[reportPos];
-                location.line = token.line;
-                location.column = token.column;
-                snippet = buildRuntimeErrorContext(token.line, token.column);
-            }
-
-            m_errorPos = static_cast<size_t>(-1);
-
-            throw EzException(EzError{
-                .phase = EzErrorPhase::Runtime,
-                .message = e.what(),
-                .location = std::move(location),
-                .snippet = std::move(snippet)
-            });
+            throw makeRuntimeException(e.what());
         }
     }
 }
@@ -1644,6 +1719,33 @@ std::string Interpreter::buildRuntimeErrorContext(const size_t line, const size_
     }
     out << "^\n";
     return out.str();
+}
+
+EzException Interpreter::makeRuntimeException(const std::string& message) {
+    size_t reportPos = m_pos;
+
+    if (m_errorPos != static_cast<size_t>(-1) && m_errorPos < m_tokens.size()) {
+        reportPos = m_errorPos;
+    }
+
+    EzSourceLocation location{m_moduleName, 0, 0};
+    std::string snippet;
+
+    if (reportPos < m_tokens.size()) {
+        const Token& token = m_tokens[reportPos];
+        location.line = token.line;
+        location.column = token.column;
+        snippet = buildRuntimeErrorContext(token.line, token.column);
+    }
+
+    m_errorPos = static_cast<size_t>(-1);
+
+    return EzException(EzError{
+        .phase = EzErrorPhase::Runtime,
+        .message = message,
+        .location = std::move(location),
+        .snippet = std::move(snippet)
+    });
 }
 
 void Interpreter::printRuntimeErrorContext(const size_t line, const size_t column) const {

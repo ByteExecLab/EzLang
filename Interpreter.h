@@ -6,7 +6,9 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <limits>
 
+#include "EzError.h"
 #include "Memory.h"
 #include "Stack.h"
 #include "Tokenizer.h"
@@ -123,6 +125,8 @@ struct NativeWord {
     std::function<ControlSignal(Interpreter&)> fn;
 };
 
+using EzHostFunction = std::function<std::vector<StackValue>(const std::vector<StackValue>&)>;
+
 struct Frame {
     // Local variables in this call frame
     std::unordered_map<std::string, StackValue> locals;
@@ -148,8 +152,14 @@ public:
      *
      */
     void registerNativeWord(const std::string& name, int arity, std::function<ControlSignal(Interpreter&)> fn);
+    void registerHostFunction(const std::string& name, int arity, EzHostFunction fn);
 
     Stack& stack();
+
+    void setRuntimeLimits(size_t instructionBudget,
+                          size_t maxCallDepth,
+                          std::function<bool()> cancelRequested = {});
+    void resetRuntimeCounters();
 
     /**
      * Pushes a value onto the stack managed by the Interpreter.
@@ -200,9 +210,33 @@ public:
     static void validateBlocks(const std::vector<Token>& tokens);
 
     std::string buildRuntimeErrorContext(size_t line, size_t column) const;
+    EzException makeRuntimeException(const std::string& message);
 
     bool hasWord(const std::string& name) const;
     std::vector<StackValue> callWord(const std::string& name, const std::vector<StackValue>& args = {});
+    bool hasGlobal(const std::string& name) const;
+    StackValue getGlobal(const std::string& name) const;
+    void setGlobal(const std::string& name, const StackValue& value, bool isConst = false);
+    void pushUserData(std::shared_ptr<void> handle, std::string typeName);
+
+    template <typename T>
+    std::shared_ptr<T> getUserData(const StackValue& value, const std::string& expectedType) const {
+        if (!std::holds_alternative<EzUserDataPtr>(value)) {
+            throw std::runtime_error("[INTERPRETER][ERROR]: Expected userdata of type '" + expectedType + "'");
+        }
+
+        const auto& userData = std::get<EzUserDataPtr>(value);
+        if (!userData) {
+            throw std::runtime_error("[INTERPRETER][ERROR]: Expected userdata of type '" + expectedType + "'");
+        }
+
+        if (userData->typeName != expectedType) {
+            throw std::runtime_error("[INTERPRETER][ERROR]: Expected userdata of type '" + expectedType +
+                                     "', got '" + userData->typeName + "'");
+        }
+
+        return std::static_pointer_cast<T>(userData->handle);
+    }
 
     /**
      * @var executionMap
@@ -1852,10 +1886,6 @@ private:
     [[nodiscard]]
     Token getCurrentToken() const;
 
-    bool hasGlobal(const std::string& name) const;
-    StackValue getGlobal(const std::string& name) const;
-    void setGlobal(const std::string& name, const StackValue& value, bool isConst = false);
-
 private:
 
     /**
@@ -2073,6 +2103,11 @@ private:
     std::vector<Frame> m_frames;
 
     std::unordered_map<std::string, NativeWord> m_nativeWords;
+    size_t m_instructionBudget = std::numeric_limits<size_t>::max();
+    size_t m_instructionCount = 0;
+    size_t m_maxCallDepth = 256;
+    size_t m_callDepth = 0;
+    std::function<bool()> m_cancelRequested;
 };
 
 #endif //LEXER_H

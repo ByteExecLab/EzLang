@@ -3,7 +3,8 @@ project(ezlang)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(ezlang main.cpp
+add_executable(ezlang
+        main.cpp
         Tokenizer.cpp
         Tokenizer.h
         Interpreter.cpp
@@ -13,8 +14,6 @@ add_executable(ezlang main.cpp
         Memory.cpp
         Memory.h
         Common.h
-        main.cpp
-        main.cpp
         Loader.cpp
         Loader.h
         bytecode.h
@@ -30,6 +29,8 @@ add_executable(ezlang main.cpp
         std/platfrom_io.cpp
         EzEngine.cpp
         EzEngine.h
+        EzRuntime.cpp
+        EzRuntime.h
         EzError.h)
 
 
@@ -49,4 +50,3 @@ elseif (UNIX)
         target_link_options(ezlang PRIVATE -static)
     endif()
 endif()
-

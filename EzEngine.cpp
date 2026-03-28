@@ -9,6 +9,7 @@
 #include "compiler.h"
 #include "EzError.h"
 #include "Interpreter.h"
+#include "EzRuntime.h"
 #include "vm.h"
 
 EzEngine::EzEngine(EzEngineConfig config): m_config(std::move(config)) {}
@@ -37,18 +38,22 @@ EzCompiledProgram EzEngine::compile(std::string source, std::string moduleName) 
     }
 }
 
-void EzEngine::runInterpreted(const EzCompiledProgram& program,const EzInterpreterSetup& extraSetup) const {
-    Interpreter interpreter(program.tokens, Stack{}, program.source, program.moduleName);
+EzRuntime EzEngine::createRuntime(const EzCompiledProgram& program) const {
+    return EzRuntime(program, m_config.nativeRegistrars);
+}
 
-    for (const auto& registrar : m_config.nativeRegistrars) {
-        registrar(interpreter);
-    }
+EzRuntime EzEngine::createRuntime(const EzCompiledProgram& program, const EzRuntimeLimits& limits) const {
+    return EzRuntime(program, m_config.nativeRegistrars, limits);
+}
+
+void EzEngine::runInterpreted(const EzCompiledProgram& program,const EzInterpreterSetup& extraSetup) const {
+    EzRuntime runtime = createRuntime(program);
 
     if (extraSetup) {
-        extraSetup(interpreter);
+        extraSetup(runtime.rawInterpreter());
     }
 
-    interpreter.execute();
+    runtime.initialize();
 }
 
 void EzEngine::runVm(const EzCompiledProgram& program) const {

@@ -5,6 +5,7 @@
 #include "StdIo.h"
 #include "platform_io.h"
 #include "../Interpreter.h"
+#include "../Utils.h"
 
 #include <iostream>
 
@@ -95,23 +96,7 @@ void registerStdIo(Interpreter &interpreter) {
                 throw std::runtime_error("[ERROR]: sys-write requires 1 argument");
             }
             StackValue v = st.pop();
-            // Convert to string in whatever way your language defines:
-            std::string out;
-
-            if (std::holds_alternative<std::string>(v)) {
-                out = std::get<std::string>(v);
-            } else if (std::holds_alternative<int>(v)) {
-                out = std::to_string(std::get<int>(v));
-            } else if (std::holds_alternative<double>(v)) {
-                out = std::to_string(std::get<double>(v));
-            } else if (std::holds_alternative<bool>(v)) {
-                out = std::get<bool>(v) ? "true" : "false";
-            } else if (std::holds_alternative<std::monostate>(v)) {
-                out = "nil"; // or ""
-            } else {
-                out = "<unsupported>";
-            }
-
+            const std::string out = Utils::toDisplayString(v, false);
             platform_io::write_string(out);
             return ControlSignal::None;
         });
@@ -124,22 +109,7 @@ void registerStdIo(Interpreter &interpreter) {
                 throw std::runtime_error("[ERROR]: sys-write-line requires 1 argument");
             }
             StackValue v = st.pop();
-            std::string out;
-
-            if (std::holds_alternative<std::string>(v)) {
-                out = std::get<std::string>(v);
-            } else if (std::holds_alternative<int>(v)) {
-                out = std::to_string(std::get<int>(v));
-            } else if (std::holds_alternative<double>(v)) {
-                out = std::to_string(std::get<double>(v));
-            } else if (std::holds_alternative<bool>(v)) {
-                out = std::get<bool>(v) ? "true" : "false";
-            } else if (std::holds_alternative<std::monostate>(v)) {
-                out = "nil"; // or ""
-            } else {
-                out = "<unsupported>";
-            }
-
+            const std::string out = Utils::toDisplayString(v, false);
             platform_io::write_string(out);
             platform_io::write_string("\n");
             return ControlSignal::None;

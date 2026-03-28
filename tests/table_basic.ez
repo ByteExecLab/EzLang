@@ -1,0 +1,12 @@
+[ 10 20 30 ]
+dup array-len print
+dup 1 array-get print
+1 99 array-set
+dup 1 array-get print
+drop
+
+{ "x" 7 "y" 9 }
+dup "x" struct-get print
+"z" 11 struct-set
+dup "z" struct-get print
+drop

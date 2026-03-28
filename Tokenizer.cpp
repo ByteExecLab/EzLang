@@ -5,7 +5,7 @@
 
 #include "EzError.h"
 
-Tokenizer::Tokenizer(std::string source, std::string moduleName): m_source(std::move(source)), m_moduleName(std::move(moduleName)) {}
+Tokenizer::Tokenizer(std::string source, std::string moduleName): m_moduleName(std::move(moduleName)), m_source(std::move(source)) {}
 
 auto Tokenizer::readNumber(std::string prefix = "") {
     std::string num = std::move(prefix);
