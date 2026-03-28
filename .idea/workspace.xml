@@ -34,6 +34,7 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Interpreter.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Interpreter.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Interpreter.h" beforeDir="false" afterPath="$PROJECT_DIR$/Interpreter.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Memory.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Memory.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -224,7 +225,7 @@
       <workItem from="1770412463331" duration="931000" />
       <workItem from="1773430950151" duration="3543000" />
       <workItem from="1773944649372" duration="1552000" />
-      <workItem from="1774427905711" duration="27100000" />
+      <workItem from="1774427905711" duration="27722000" />
     </task>
     <task id="LOCAL-00001" summary="Ignore Linux line endings">
       <option name="closed" value="true" />

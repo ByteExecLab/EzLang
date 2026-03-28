@@ -845,17 +845,11 @@ void Interpreter::executeReturn() {
 }
 
 void Interpreter::executeLoadVariable() {
-    const Token nameTok = consume(TokenType::LOAD_VARIABLE, "[INTERPRETER][ERROR]: Expected '@' before identifier");
+    const Token nameTok = consume(TokenType::LOAD_VARIABLE,
+        "[INTERPRETER][ERROR]: Expected '@' before identifier");
+
     const auto& name = std::get<std::string>(nameTok.value);
-
-    const auto it = m_variables.find(name);
-    if (it == m_variables.end()) {
-        throw std::runtime_error("[INTERPRETER][ERROR]: Undefined variable '" + name + "'");
-    }
-
-    const auto&[address, isConst] = it->second;
-    const StackValue value = m_memory.read(address);
-    m_stack.push(value);
+    m_stack.push(getGlobal(name));
 }
 
 void Interpreter::executeAnd() {
@@ -1540,6 +1534,40 @@ ControlSignal Interpreter::executeSingleToken() {
     }
 
     throw std::runtime_error("[ERROR]: Unknown token type: " + tokenTypeToString(type));
+}
+
+bool Interpreter::hasGlobal(const std::string &name) const {
+    return m_variables.contains(name);
+}
+
+StackValue Interpreter::getGlobal(const std::string &name) const {
+    const auto it = m_variables.find(name);
+    if (it == m_variables.end()) {
+        throw std::runtime_error("[INTERPRETER][ERROR]: Undefined variable '" + name + "'");
+    }
+
+    return m_memory.read(it->second.address);
+}
+
+void Interpreter::setGlobal(const std::string &name, const StackValue &value, bool isConst) {
+    const auto it = m_variables.find(name);
+
+    if (it != m_variables.end()) {
+        if (it->second.isConst) {
+            throw std::runtime_error("[INTERPRETER][ERROR]: Cannot assign to const '" + name + "'");
+        }
+
+        m_memory.write(it->second.address, value);
+        return;
+    }
+
+    const uint32_t addr = m_nextAvailableMemoryAddress++;
+    m_memory.write(addr, value);
+
+    m_variables[name] = VariableData{
+        .address = addr,
+        .isConst = isConst
+    };
 }
 
 void Interpreter::execute() {

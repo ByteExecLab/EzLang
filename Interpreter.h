@@ -1852,6 +1852,10 @@ private:
     [[nodiscard]]
     Token getCurrentToken() const;
 
+    bool hasGlobal(const std::string& name) const;
+    StackValue getGlobal(const std::string& name) const;
+    void setGlobal(const std::string& name, const StackValue& value, bool isConst = false);
+
 private:
 
     /**

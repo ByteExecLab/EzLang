@@ -12,17 +12,18 @@ Memory::Memory(const size_t size) {
 }
 
 void Memory::write(const uint32_t address, const StackValue &value) {
-    const std::size_t index = address / sizeof(StackValue);
+    const std::size_t index = address;
 
     if (index >= m_memory.size()) {
         throw std::runtime_error("[ERROR]: Memory address out of bounds");
     }
 
-    m_memory[index] = value;  // safe: real StackValue object
+    m_memory[index] = value;
 }
 
 StackValue Memory::read(const uint32_t address) const {
-    const std::size_t index = address / sizeof(StackValue);
+    const std::size_t index = address;
+
     if (index >= m_memory.size()) {
         throw std::runtime_error("[ERROR]: Memory address out of bounds");
     }
