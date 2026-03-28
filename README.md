@@ -39,7 +39,8 @@ That keeps the language postfix and word-oriented while making the host API feel
 
 ## API Docs
 
-For the host-facing C++ API reference, see [docs/API.md](/D:/projects/tryit/ezlang/docs/API.md).
+For the host-facing C++ API reference, see [docs/API.md](/docs/API.md).
+For a minimal embedding example, see [examples/embed_basic.cpp](/examples/embed_basic.cpp).
 
 ---
 

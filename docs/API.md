@@ -2,6 +2,9 @@
 
 This document describes the current host-facing C++ API for embedding EzLang.
 
+For a small end-to-end host example, see [examples/embed_basic.cpp](/examples/embed_basic.cpp).
+For a stricter regression-style embedding check, see [tests/embed_smoke.cpp](/tests/embed_smoke.cpp).
+
 The intended flow is:
 
 1. Create an `EzEngine`
@@ -16,7 +19,7 @@ The intended flow is:
 
 ### `EzCompiledProgram`
 
-Declared in [EzEngine.h](/D:/projects/tryit/ezlang/EzEngine.h).
+Declared in [EzEngine.h](/EzEngine.h).
 
 ```cpp
 struct EzCompiledProgram {
@@ -36,7 +39,7 @@ In the current implementation, this is a lightweight compiled chunk for the inte
 
 ### `StackValue`
 
-Declared in [Common.h](/D:/projects/tryit/ezlang/Common.h).
+Declared in [Common.h](/Common.h).
 
 ```cpp
 using StackValue = std::variant<
@@ -68,7 +71,7 @@ Notes:
 
 ### `EzTable`
 
-Declared in [Common.h](/D:/projects/tryit/ezlang/Common.h).
+Declared in [Common.h](/Common.h).
 
 ```cpp
 struct EzTable {
@@ -88,7 +91,7 @@ Current language mapping:
 
 ### `EzUserData`
 
-Declared in [Common.h](/D:/projects/tryit/ezlang/Common.h).
+Declared in [Common.h](/Common.h).
 
 ```cpp
 struct EzUserData {
@@ -101,7 +104,7 @@ Use userdata for opaque host-owned values like engine objects, handles, or file/
 
 ## Errors
 
-Declared in [EzError.h](/D:/projects/tryit/ezlang/EzError.h).
+Declared in [EzError.h](/EzError.h).
 
 ### `EzErrorPhase`
 
@@ -150,7 +153,7 @@ Use `EzRuntime::pcallWord(...)` for protected host calls that return errors as d
 
 ## Engine API
 
-Declared in [EzEngine.h](/D:/projects/tryit/ezlang/EzEngine.h).
+Declared in [EzEngine.h](/EzEngine.h).
 
 ### `EzEngineConfig`
 
@@ -233,7 +236,7 @@ This is currently a one-shot execution path, not the main embedding API.
 
 ## Runtime API
 
-Declared in [EzRuntime.h](/D:/projects/tryit/ezlang/EzRuntime.h).
+Declared in [EzRuntime.h](/EzRuntime.h).
 
 ### `EzRuntimeLimits`
 
@@ -380,7 +383,7 @@ Prefer the higher-level runtime API where possible.
 
 ## Interpreter Host Hooks
 
-Declared in [Interpreter.h](/D:/projects/tryit/ezlang/Interpreter.h).
+Declared in [Interpreter.h](/Interpreter.h).
 
 These methods are most useful through `runtime.rawInterpreter()`.
 
