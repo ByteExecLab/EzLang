@@ -14,8 +14,6 @@ set(EZLANG_CORE_SOURCES
         Interpreter.h
         Stack.cpp
         Stack.h
-        Memory.cpp
-        Memory.h
         Common.h
         Loader.cpp
         Loader.h

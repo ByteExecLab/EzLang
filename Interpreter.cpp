@@ -13,6 +13,28 @@
 #include "Utils.h"
 
 namespace {
+    EzEnvironmentPtr findEnvironmentWithBinding(const EzEnvironmentPtr& env, const std::string& name) {
+        for (auto current = env; current; current = current->parent) {
+            if (!current->table) {
+                continue;
+            }
+
+            if (current->table->entries.contains(EzTableKey{name})) {
+                return current;
+            }
+        }
+
+        return nullptr;
+    }
+
+    std::shared_ptr<StackValue> findEnvironmentBinding(const EzEnvironmentPtr& env, const std::string& name) {
+        if (const auto owner = findEnvironmentWithBinding(env, name)) {
+            return owner->table->entries.at(EzTableKey{name});
+        }
+
+        return {};
+    }
+
     const EzTable& expectTable(const StackValue& value, const char* message) {
         if (!std::holds_alternative<EzTablePtr>(value)) {
             throw std::runtime_error(message);
@@ -40,8 +62,23 @@ namespace {
     }
 }
 
-Interpreter::Interpreter(std::vector<Token> tokens, Stack stack, std::string source, std::string moduleName)
-    : m_source(std::move(source)), m_stack(std::move(stack)), m_tokens(std::move(tokens)), m_memory(1024), m_moduleName(std::move(moduleName)) {
+Interpreter::Interpreter(std::vector<Token> tokens,
+                         Stack stack,
+                         std::string source,
+                         std::string moduleName,
+                         EzEnvironmentPtr globalEnv)
+    : m_source(std::move(source)),
+      m_stack(std::move(stack)),
+      m_tokens(std::move(tokens)),
+      m_moduleName(std::move(moduleName)),
+      m_globalEnv(std::move(globalEnv)) {
+
+    if (!m_globalEnv) {
+        m_globalEnv = std::make_shared<EzEnvironment>();
+    }
+    if (!m_globalEnv->table) {
+        m_globalEnv->table = std::make_shared<EzTable>();
+    }
 
     // Global frame
     m_frames.emplace_back();
@@ -764,21 +801,18 @@ void Interpreter::defineVariable(const bool isConst) {
     const Token nameTok = consume(TokenType::IDENTIFIER, "[INTERPRETER][ERROR]: Expected identifier after const/var");
     const auto& name = std::get<std::string>(nameTok.value);
 
-    if (m_variables.contains(name)) {
+    if (m_globalEnv->table->entries.contains(EzTableKey{name})) {
         throw std::runtime_error("[INTERPRETER][ERROR]: Variable '" + name + "' has already been defined");
     }
 
-    // Pop the initial value from the stack
     const StackValue initial = m_stack.pop();
+    m_globalEnv->table->entries[EzTableKey{name}] = std::make_shared<StackValue>(initial);
 
-    // Allocate memory
-    const uint32_t addr = m_nextAvailableMemoryAddress++;
-    m_memory.write(addr, initial);
-
-    m_variables[name] = VariableData{
-        .address = addr,
-        .isConst = isConst
-    };
+    if (isConst) {
+        m_globalEnv->constNames.insert(name);
+    } else {
+        m_globalEnv->constNames.erase(name);
+    }
 }
 
 void Interpreter::executeDefineConst() {
@@ -1238,18 +1272,17 @@ void Interpreter::executeStoreVariable() {
     const Token nameTok = consume(TokenType::IDENTIFIER, "[INTERPRETER][ERROR]: Expected identifier before '!'");
     const auto& name = std::get<std::string>(nameTok.value);
 
-    const auto it = m_variables.find(name);
-    if (it == m_variables.end()) {
+    const auto envWithBinding = findEnvironmentWithBinding(m_globalEnv, name);
+    if (!envWithBinding) {
         throw std::runtime_error("[INTERPRETER][ERROR]: Undefined variable '" + name + "'");
     }
 
-    auto&[address, isConst] = it->second;
-    if (isConst) {
+    if (envWithBinding->constNames.contains(name)) {
         throw std::runtime_error("[INTERPRETER][ERROR]: Cannot assign to const '" + name + "'");
     }
 
     const StackValue value = m_stack.pop();
-    m_memory.write(address, value);
+    envWithBinding->table->entries[EzTableKey{name}] = std::make_shared<StackValue>(value);
 }
 
 void Interpreter::executeLet() {
@@ -1646,37 +1679,50 @@ ControlSignal Interpreter::executeSingleToken() {
 }
 
 bool Interpreter::hasGlobal(const std::string &name) const {
-    return m_variables.contains(name);
+    return static_cast<bool>(findEnvironmentBinding(m_globalEnv, name));
 }
 
 StackValue Interpreter::getGlobal(const std::string &name) const {
-    const auto it = m_variables.find(name);
-    if (it == m_variables.end()) {
+    const auto binding = findEnvironmentBinding(m_globalEnv, name);
+    if (!binding) {
         throw std::runtime_error("[INTERPRETER][ERROR]: Undefined variable '" + name + "'");
     }
 
-    return m_memory.read(it->second.address);
+    return *binding;
 }
 
 void Interpreter::setGlobal(const std::string &name, const StackValue &value, bool isConst) {
-    const auto it = m_variables.find(name);
+    auto& entries = m_globalEnv->table->entries;
+    const auto it = entries.find(EzTableKey{name});
 
-    if (it != m_variables.end()) {
-        if (it->second.isConst) {
+    if (it != entries.end()) {
+        if (m_globalEnv->constNames.contains(name)) {
             throw std::runtime_error("[INTERPRETER][ERROR]: Cannot assign to const '" + name + "'");
         }
 
-        m_memory.write(it->second.address, value);
+        entries[EzTableKey{name}] = std::make_shared<StackValue>(value);
         return;
     }
 
-    const uint32_t addr = m_nextAvailableMemoryAddress++;
-    m_memory.write(addr, value);
+    entries[EzTableKey{name}] = std::make_shared<StackValue>(value);
+    if (isConst) {
+        m_globalEnv->constNames.insert(name);
+    }
+}
 
-    m_variables[name] = VariableData{
-        .address = addr,
-        .isConst = isConst
-    };
+void Interpreter::setGlobalEnvironment(EzEnvironmentPtr env) {
+    if (!env) {
+        throw std::runtime_error("[INTERPRETER][ERROR]: Global environment cannot be null");
+    }
+    if (!env->table) {
+        env->table = std::make_shared<EzTable>();
+    }
+
+    m_globalEnv = std::move(env);
+}
+
+EzEnvironmentPtr Interpreter::globalEnvironment() const {
+    return m_globalEnv;
 }
 
 void Interpreter::execute() {

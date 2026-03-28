@@ -34,11 +34,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e879248a-9567-47e7-b0a3-b9d5f6463c05" name="Changes" comment="Add all language features example">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Common.h" beforeDir="false" afterPath="$PROJECT_DIR$/Common.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/EzRuntime.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/EzRuntime.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/EzRuntime.h" beforeDir="false" afterPath="$PROJECT_DIR$/EzRuntime.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Interpreter.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Interpreter.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Interpreter.h" beforeDir="false" afterPath="$PROJECT_DIR$/Interpreter.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/docs/API.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/API.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/embed_basic.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/examples/embed_basic.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tests/embed_smoke.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/tests/embed_smoke.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -268,7 +271,7 @@
       <workItem from="1770412463331" duration="931000" />
       <workItem from="1773430950151" duration="3543000" />
       <workItem from="1773944649372" duration="1552000" />
-      <workItem from="1774427905711" duration="29899000" />
+      <workItem from="1774427905711" duration="32126000" />
     </task>
     <task id="LOCAL-00001" summary="Ignore Linux line endings">
       <option name="closed" value="true" />

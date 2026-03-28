@@ -4,13 +4,16 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <variant>
 #include <vector>
 
 struct EzTable;
 struct EzUserData;
+struct EzEnvironment;
 using EzTablePtr = std::shared_ptr<EzTable>;
 using EzUserDataPtr = std::shared_ptr<EzUserData>;
+using EzEnvironmentPtr = std::shared_ptr<EzEnvironment>;
 
 using StackValue = std::variant<
     std::monostate,
@@ -55,6 +58,12 @@ struct EzTable {
 struct EzUserData {
     std::shared_ptr<void> handle;
     std::string typeName;
+};
+
+struct EzEnvironment {
+    EzTablePtr table = std::make_shared<EzTable>();
+    std::unordered_set<std::string> constNames;
+    EzEnvironmentPtr parent;
 };
 
 inline EzTable::EzTable(std::vector<StackValue> src) {

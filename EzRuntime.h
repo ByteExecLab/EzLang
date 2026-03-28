@@ -49,6 +49,8 @@ public:
     [[nodiscard]] bool hasGlobal(const std::string& name) const;
     [[nodiscard]] StackValue getGlobal(const std::string& name) const;
     void setGlobal(const std::string& name, const StackValue& value, bool isConst = false);
+    [[nodiscard]] EzEnvironmentPtr globalEnvironment() const;
+    void setGlobalEnvironment(EzEnvironmentPtr env);
 
     Interpreter& rawInterpreter();
     const Interpreter& rawInterpreter() const;
@@ -58,6 +60,7 @@ private:
     void prepareExecution();
 
     EzCompiledProgram m_program;
+    EzEnvironmentPtr m_globalEnv;
     Interpreter m_interpreter;
     bool m_initialized = false;
     EzRuntimeLimits m_limits;

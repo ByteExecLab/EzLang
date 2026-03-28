@@ -186,6 +186,30 @@ int main() {
                 "startup failure should preserve the underlying runtime message");
         require(!startupFailRuntime.isInitialized(), "failed initialization should not mark runtime initialized");
 
+        EzRuntime isolatedRuntimeA = engine.createRuntime(basicProgram);
+        EzRuntime isolatedRuntimeB = engine.createRuntime(basicProgram);
+        isolatedRuntimeA.setGlobal("score", 10);
+        isolatedRuntimeB.setGlobal("score", 99);
+
+        const auto isolatedScoreA = isolatedRuntimeA.callWord("readScore");
+        const auto isolatedScoreB = isolatedRuntimeB.callWord("readScore");
+        require(requireInt(isolatedScoreA.at(0), "isolated runtime A score") == 10,
+                "runtime A should keep its own global environment");
+        require(requireInt(isolatedScoreB.at(0), "isolated runtime B score") == 99,
+                "runtime B should keep its own global environment");
+
+        const auto sharedEnv = std::make_shared<EzEnvironment>();
+
+        EzRuntime sharedRuntimeA = engine.createRuntime(basicProgram);
+        EzRuntime sharedRuntimeB = engine.createRuntime(basicProgram);
+        sharedRuntimeA.setGlobalEnvironment(sharedEnv);
+        sharedRuntimeB.setGlobalEnvironment(sharedEnv);
+        sharedRuntimeA.setGlobal("score", 123);
+
+        const auto sharedScoreB = sharedRuntimeB.callWord("readScore");
+        require(requireInt(sharedScoreB.at(0), "shared runtime B score") == 123,
+                "shared runtimes should observe the same global environment");
+
         std::cout << "embed smoke ok\n";
         return 0;
     } catch (const std::exception& e) {

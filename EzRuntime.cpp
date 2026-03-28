@@ -21,7 +21,8 @@ EzRuntime::EzRuntime(const EzCompiledProgram& program,
                      std::vector<EzNativeRegistrar> registrars,
                      EzRuntimeLimits limits)
     : m_program(program),
-      m_interpreter(m_program.tokens, Stack{}, m_program.source, m_program.moduleName),
+      m_globalEnv(std::make_shared<EzEnvironment>()),
+      m_interpreter(m_program.tokens, Stack{}, m_program.source, m_program.moduleName, m_globalEnv),
       m_limits(std::move(limits)) {
     for (const auto& registrar : registrars) {
         registrar(m_interpreter);
@@ -125,6 +126,25 @@ StackValue EzRuntime::getGlobal(const std::string& name) const {
 
 void EzRuntime::setGlobal(const std::string& name, const StackValue& value, const bool isConst) {
     m_interpreter.setGlobal(name, value, isConst);
+}
+
+EzEnvironmentPtr EzRuntime::globalEnvironment() const {
+    return m_globalEnv;
+}
+
+void EzRuntime::setGlobalEnvironment(EzEnvironmentPtr env) {
+    if (m_initialized) {
+        throw std::runtime_error("[EZRUNTIME][ERROR]: Cannot replace the global environment after initialization");
+    }
+    if (!env) {
+        throw std::runtime_error("[EZRUNTIME][ERROR]: Global environment cannot be null");
+    }
+    if (!env->table) {
+        env->table = std::make_shared<EzTable>();
+    }
+
+    m_globalEnv = std::move(env);
+    m_interpreter.setGlobalEnvironment(m_globalEnv);
 }
 
 Interpreter& EzRuntime::rawInterpreter() {

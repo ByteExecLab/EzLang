@@ -1,0 +1,6 @@
+word show 0
+    @x print
+end
+
+10 var x
+show

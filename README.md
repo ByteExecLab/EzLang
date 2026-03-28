@@ -61,7 +61,7 @@ For a minimal embedding example, see [examples/embed_basic.cpp](/examples/embed_
 - userdata
 
 ### Variables
-- global `var` and `const`
+- per-runtime global environment with `var` and `const`
 - explicit global load with `@name`
 - explicit global store with `value ! name`
 - frame-local `let name`
@@ -126,6 +126,8 @@ Notes:
 - locals are scoped to the current call frame
 - nested word calls do not automatically see caller locals
 - globals remain explicit through `@name` and `! name`
+- each `EzRuntime` gets its own global environment by default
+- hosts can intentionally share globals across runtimes with `setGlobalEnvironment(...)`
 
 ---
 
@@ -198,6 +200,7 @@ auto protectedCall = runtime.pcallWord("tick");
 
 - `EzEngine`: compiles source into a reusable program chunk
 - `EzRuntime`: owns one interpreter instance and keeps runtime state alive
+- `EzEnvironment`: table-backed global environment, isolated per runtime by default
 - `EzRuntimeLimits`: instruction budget, max call depth, and cancellation hook
 - `EzCallResult`: protected-call result with `ok`, `values`, and optional error
 
@@ -206,9 +209,34 @@ auto protectedCall = runtime.pcallWord("tick");
 - register low-level native words with `registerNativeWord(...)`
 - register easier host callbacks with `registerHostFunction(...)`
 - inject and read globals with `setGlobal(...)` and `getGlobal(...)`
+- inspect or replace the runtime global environment with `globalEnvironment()` and `setGlobalEnvironment(...)`
 - protect top-level startup with `pcallInitialize(...)`
 - call script words repeatedly with `callWord(...)`
 - catch script failures without exceptions escaping the host by using `pcallWord(...)`
+
+### Global Environments
+
+Each `EzRuntime` owns its own global environment by default.
+That means two runtimes created from the same compiled program do not share globals unless the host chooses to share them.
+
+Typical default behavior:
+
+```cpp
+auto runtimeA = engine.createRuntime(program);
+auto runtimeB = engine.createRuntime(program);
+
+runtimeA.setGlobal("score", 10);
+runtimeB.setGlobal("score", 99);
+```
+
+If a host wants shared state, it can explicitly install one environment into multiple runtimes before initialization:
+
+```cpp
+auto sharedEnv = std::make_shared<EzEnvironment>();
+
+runtimeA.setGlobalEnvironment(sharedEnv);
+runtimeB.setGlobalEnvironment(sharedEnv);
+```
 
 ### Userdata
 

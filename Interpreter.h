@@ -9,7 +9,6 @@
 #include <limits>
 
 #include "EzError.h"
-#include "Memory.h"
 #include "Stack.h"
 #include "Tokenizer.h"
 
@@ -70,12 +69,6 @@ struct BlockFrame {
     BlockKind kind;
     Token startToken;
     bool sawElse = false;  // only used for IF
-};
-
-
-struct VariableData {
-    uint32_t address;   // Memory Address
-    bool isConst;       // true = immutable
 };
 
 /**
@@ -146,7 +139,11 @@ public:
      * @param stack
      * @param source
      */
-    explicit Interpreter(std::vector<Token> tokens, Stack stack, std::string source, std::string moduleName = "<memory>");
+    explicit Interpreter(std::vector<Token> tokens,
+                         Stack stack,
+                         std::string source,
+                         std::string moduleName = "<memory>",
+                         EzEnvironmentPtr globalEnv = std::make_shared<EzEnvironment>());
 
     /**
      *
@@ -217,6 +214,8 @@ public:
     bool hasGlobal(const std::string& name) const;
     StackValue getGlobal(const std::string& name) const;
     void setGlobal(const std::string& name, const StackValue& value, bool isConst = false);
+    void setGlobalEnvironment(EzEnvironmentPtr env);
+    [[nodiscard]] EzEnvironmentPtr globalEnvironment() const;
     void pushUserData(std::shared_ptr<void> handle, std::string typeName);
 
     template <typename T>
@@ -951,13 +950,13 @@ private:
     static void printVariant(const StackValue& value);
 
     /**
-     * Defines a new variable with an initial value in the interpreter.
+     * Defines a new global variable with an initial value in the interpreter.
      *
-     * This method creates a new variable by associating it with a unique memory
-     * address. The variable's initial value is taken from the top of the stack.
-     * If the variable already exists, an exception is thrown. The new variable's
-     * name is obtained from the token stream, and the interpreter ensures the
-     * token sequence is valid for a variable definition.
+     * This method creates a new binding in the runtime's global environment.
+     * The variable's initial value is taken from the top of the stack. If the
+     * variable already exists in the current global environment, an exception
+     * is thrown. The new variable's name is obtained from the token stream, and
+     * the interpreter ensures the token sequence is valid for a variable definition.
      *
      * @throws std::runtime_error If a variable with the same name is already
      * defined, or if the token sequence is invalid for defining a variable.
@@ -1077,12 +1076,12 @@ private:
     void executeWordDefinition();
 
     /**
-     * Executes the operation to load a variable from memory onto the stack.
+     * Executes the operation to load a global variable onto the stack.
      *
-     * This method retrieves the value of a named variable from the memory, using
-     * its address, and pushes the value onto the stack for further use. The variable
-     * to be loaded is specified in the current sequence of tokens being processed.
-     * If the variable is not defined, an exception is thrown.
+     * This method retrieves the value of a named variable from the runtime's
+     * global environment chain and pushes the value onto the stack for further use.
+     * The variable to be loaded is specified in the current sequence of tokens
+     * being processed. If the variable is not defined, an exception is thrown.
      *
      * Proper token consumption is ensured during the execution process, expecting
      * a valid identifier followed by the load variable operation token.
@@ -1092,11 +1091,11 @@ private:
     void executeLoadVariable();
 
     /**
-     * Executes the operation to store a value into a pre-defined variable in memory.
+     * Executes the operation to store a value into a pre-defined global variable.
      *
      * This method retrieves a variable name from the current token in the token sequence
-     * and verifies its existence in the variable map. The corresponding value from the
-     * stack is stored at the memory address associated with the variable. The stack
+     * and verifies its existence in the runtime's global environment chain. The
+     * corresponding value from the stack replaces the existing binding. The stack
      * must not be empty before execution, and appropriate tokens must follow
      * the language's expected syntax.
      *
@@ -1935,16 +1934,6 @@ private:
     ControlSignal m_controlSignal = ControlSignal::None;
 
     /**
-     * A mapping of variable names to their corresponding integer values.
-     *
-     * This member variable stores the runtime state of variables used during
-     * interpretation. Each entry in the map associates a variable name (as a string)
-     * with its current value (as an unsigned 32-bit integer). The map is used
-     * for variable lookups, assignments, and related operations during program execution.
-     */
-    std::map<std::string, VariableData> m_variables;
-
-    /**
      * A shared pointer to the internal execution stack of the interpreter.
      *
      * This stack is used to manage the state during the interpretation process,
@@ -1964,18 +1953,6 @@ private:
      * order of tokens as they are processed during interpretation.
      */
     std::vector<Token> m_tokens;
-
-
-    /**
-     * A shared pointer to a Memory object used for managing and accessing
-     * the memory operations within the Interpreter.
-     *
-     * This member variable provides shared ownership of the Memory instance,
-     * ensuring that it remains accessible and valid for the lifespan of any
-     * component that references it. The Memory object handles storage and
-     * retrieval of data required for the execution process.
-     */
-    Memory m_memory;
 
 
     /**
@@ -2004,15 +1981,6 @@ private:
      * @see WordDef
      */
     std::unordered_map<std::string, WordDef> m_words;
-
-    /**
-     * Tracks the next available memory address for allocation.
-     *
-     * This member variable stores the address to allocate the next block of memory.
-     * It is used to ensure that each allocation operation results in a unique and
-     * sequential memory address.
-     */
-    uint32_t m_nextAvailableMemoryAddress = 0;
 
     /**
      * Represents the current position or index within a sequence of elements.
@@ -2098,6 +2066,7 @@ private:
     std::vector<size_t> m_structMarks;
 
     std::string m_moduleName;
+    EzEnvironmentPtr m_globalEnv;
 
     // Call stack frames
     std::vector<Frame> m_frames;

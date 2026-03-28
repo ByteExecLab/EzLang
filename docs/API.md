@@ -15,6 +15,9 @@ The intended flow is:
 6. Initialize once
 7. Call words repeatedly
 
+Each `EzRuntime` gets its own global environment by default.
+If a host wants shared global state, it can explicitly install the same `EzEnvironment` into multiple runtimes before initialization.
+
 In the current API, prefer `EzRuntime` methods first.
 Use `rawInterpreter()` only when you need lower-level access that has not been promoted yet.
 
@@ -104,6 +107,29 @@ struct EzUserData {
 ```
 
 Use userdata for opaque host-owned values like engine objects, handles, or file/socket wrappers.
+
+### `EzEnvironment`
+
+Declared in [Common.h](/Common.h).
+
+```cpp
+struct EzEnvironment {
+    EzTablePtr table = std::make_shared<EzTable>();
+    std::unordered_set<std::string> constNames;
+    EzEnvironmentPtr parent;
+};
+```
+
+`EzEnvironment` is the runtime global-binding container.
+
+Current behavior:
+
+- each `EzRuntime` owns one global environment by default
+- `var` and `const` create bindings in that environment
+- `@name` reads through the environment chain
+- `value ! name` updates an existing binding through the environment chain
+- `setGlobal(...)` from the host writes into the runtime's current environment
+- `parent` exists as groundwork for future environment chaining/module design
 
 ## Errors
 
@@ -299,6 +325,8 @@ public:
     [[nodiscard]] bool hasGlobal(const std::string& name) const;
     [[nodiscard]] StackValue getGlobal(const std::string& name) const;
     void setGlobal(const std::string& name, const StackValue& value, bool isConst = false);
+    [[nodiscard]] EzEnvironmentPtr globalEnvironment() const;
+    void setGlobalEnvironment(EzEnvironmentPtr env);
 
     Interpreter& rawInterpreter();
     const Interpreter& rawInterpreter() const;
@@ -418,6 +446,25 @@ Behavior:
 - throws if the existing global is const
 - `isConst` only affects first creation
 
+Globals live inside the runtime's current `EzEnvironment`.
+
+#### `globalEnvironment()`
+
+Returns the runtime's current global environment object.
+
+This is mainly useful when a host wants to inspect or intentionally share one environment across runtimes.
+
+#### `setGlobalEnvironment(...)`
+
+Replaces the runtime's global environment.
+
+Behavior:
+
+- throws if `env` is null
+- throws if the runtime has already been initialized
+- allows intentional global sharing across runtimes when the same `EzEnvironmentPtr` is reused
+- initializes `env->table` if needed
+
 #### `rawInterpreter()`
 
 Advanced escape hatch for direct access to the underlying interpreter.
@@ -505,6 +552,9 @@ void setGlobal(const std::string& name, const StackValue& value, bool isConst = 
 ```
 
 These are the underlying interpreter methods used by `EzRuntime`.
+
+Interpreter globals are environment-backed rather than memory-slot-backed.
+Most hosts should prefer using the `EzRuntime` wrappers unless they need lower-level control.
 
 ### Userdata Helpers
 
@@ -597,6 +647,18 @@ auto square = runtime.callWord("square", { StackValue{5} });
 auto score = runtime.pcallWord("readScore");
 ```
 
+To intentionally share globals:
+
+```cpp
+auto sharedEnv = std::make_shared<EzEnvironment>();
+
+EzRuntime runtimeA = engine.createRuntime(program);
+EzRuntime runtimeB = engine.createRuntime(program);
+
+runtimeA.setGlobalEnvironment(sharedEnv);
+runtimeB.setGlobalEnvironment(sharedEnv);
+```
+
 ## Current Gaps
 
 These APIs are usable now, but still evolving.
@@ -604,5 +666,6 @@ These APIs are usable now, but still evolving.
 Areas likely to expand next:
 
 - clearer module-environment API
+- environment chaining and module environments on top of `EzEnvironment`
 - better userdata convenience wrappers
 - stronger VM parity for the embedding path

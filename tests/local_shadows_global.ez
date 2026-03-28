@@ -1,0 +1,9 @@
+10 var x
+
+word show 0
+    20 let x
+    x print
+    @x print
+end
+
+show
