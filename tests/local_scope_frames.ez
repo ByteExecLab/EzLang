@@ -1,0 +1,12 @@
+word inner 0
+    99 let x
+    x print
+end
+
+word outer 0
+    10 let x
+    inner
+    x print
+end
+
+outer

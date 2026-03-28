@@ -1,0 +1,12 @@
+word localMath 1
+    let x
+    x x + print
+
+    5 let y
+    y print
+
+    8 set y
+    y print
+end
+
+7 localMath

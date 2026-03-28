@@ -64,6 +64,9 @@ For a minimal embedding example, see [examples/embed_basic.cpp](/examples/embed_
 - global `var` and `const`
 - explicit global load with `@name`
 - explicit global store with `value ! name`
+- frame-local `let name`
+- frame-local update with `set name`
+- bare identifier local reads from the current frame when a local exists
 
 ### Words
 - define words with `word <name> <arity> ... end`
@@ -106,6 +109,23 @@ end
 0 classify
 7 classify
 ```
+
+Local variables inside a word:
+
+```ezlang
+word bump 1
+    let x
+    x 1 + set x
+    x
+end
+
+5 bump print
+```
+
+Notes:
+- locals are scoped to the current call frame
+- nested word calls do not automatically see caller locals
+- globals remain explicit through `@name` and `! name`
 
 ---
 

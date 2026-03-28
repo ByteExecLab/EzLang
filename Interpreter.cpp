@@ -872,6 +872,15 @@ void Interpreter::executeIdentifier() {
     const Token& identToken = m_tokens[m_pos];
     const std::string name = std::get<std::string>(identToken.value);
 
+    // Bare identifiers first resolve against the current local frame.
+    // This keeps locals frame-scoped and prevents implicit reads from globals.
+    auto& locals = currentFrame().locals;
+    if (const auto itLocal = locals.find(name); itLocal != locals.end()) {
+        ++m_pos; // consume IDENTIFIER
+        m_stack.push(itLocal->second);
+        return;
+    }
+
     if (const auto itUser = m_words.find(name); itUser != m_words.end()) {
         ++m_pos; // consume IDENTIFIER
         const ControlSignal sig = invokeUserWord(name, itUser->second);

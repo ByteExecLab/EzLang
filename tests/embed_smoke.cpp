@@ -36,6 +36,12 @@ int main() {
                 dup *
             end
 
+            word localIncrement 1
+                let x
+                x 1 + set x
+                x
+            end
+
             word readScore 0
                 @score
             end
@@ -50,6 +56,15 @@ int main() {
 
             word boom 0
                 missing-word
+            end
+
+            word innerNeedsLocal 0
+                x
+            end
+
+            word outerWithLocal 0
+                10 let x
+                innerNeedsLocal
             end
         )", "embed_smoke_basic.ez");
 
@@ -87,6 +102,11 @@ int main() {
         require(square.size() == 1, "square should return one value");
         require(requireInt(square[0], "square result") == 25, "square returned wrong value");
 
+        const auto localIncrement = runtime.callWord("localIncrement", {StackValue{5}});
+        require(localIncrement.size() == 1, "localIncrement should return one value");
+        require(requireInt(localIncrement[0], "localIncrement result") == 6,
+                "localIncrement should update and read a local in the same frame");
+
         const auto score = runtime.callWord("readScore");
         require(score.size() == 1, "readScore should return one value");
         require(requireInt(score[0], "readScore result") == 42, "readScore returned wrong value");
@@ -104,6 +124,12 @@ int main() {
         require(!failResult.ok, "boom should fail");
         require(failResult.error.has_value(), "boom should return an error");
         require(failResult.error->phase == EzErrorPhase::Runtime, "boom should return a runtime error");
+
+        const auto localScopeResult = runtime.pcallWord("outerWithLocal");
+        require(!localScopeResult.ok, "caller locals should not leak into nested word frames");
+        require(localScopeResult.error.has_value(), "outerWithLocal should surface an error");
+        require(localScopeResult.error->message.find("Unknown word 'x'") != std::string::npos,
+                "nested word should not be able to resolve the caller local");
 
         const auto loopProgram = engine.compile(R"(
             word spin 0
