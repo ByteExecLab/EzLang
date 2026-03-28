@@ -31,17 +31,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e879248a-9567-47e7-b0a3-b9d5f6463c05" name="Changes" comment="Add all language features example">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/CMakeLists.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Common.h" beforeDir="false" afterPath="$PROJECT_DIR$/Common.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/EzEngine.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/EzEngine.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/EzEngine.h" beforeDir="false" afterPath="$PROJECT_DIR$/EzEngine.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Interpreter.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Interpreter.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Interpreter.h" beforeDir="false" afterPath="$PROJECT_DIR$/Interpreter.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Utils.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Utils.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Utils.h" beforeDir="false" afterPath="$PROJECT_DIR$/Utils.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/std/StdIo.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/std/StdIo.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/vm.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/vm.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -68,12 +58,12 @@
     &quot;assignee&quot;: &quot;marekdev-me&quot;
   }
 }</component>
-  <component name="GithubPullRequestsUISettings">{
-  &quot;selectedUrlAndAccountId&quot;: {
-    &quot;url&quot;: &quot;https://github.com/marekdev-me/EzLang.git&quot;,
-    &quot;accountId&quot;: &quot;99e9df2e-183e-4483-84a3-3096a8d9b7b4&quot;
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "git@github.com:ByteExecLab/EzLang.git",
+    "accountId": "99e9df2e-183e-4483-84a3-3096a8d9b7b4"
   }
-}</component>
+}]]></component>
   <component name="HighlightingSettingsPerFile">
     <setting file="file://$PROJECT_DIR$/Interpreter.cpp" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/Interpreter.h" root0="FORCE_HIGHLIGHTING" />
@@ -232,7 +222,7 @@
       <workItem from="1770412463331" duration="931000" />
       <workItem from="1773430950151" duration="3543000" />
       <workItem from="1773944649372" duration="1552000" />
-      <workItem from="1774427905711" duration="28324000" />
+      <workItem from="1774427905711" duration="28692000" />
     </task>
     <task id="LOCAL-00001" summary="Ignore Linux line endings">
       <option name="closed" value="true" />
