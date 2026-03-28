@@ -31,16 +31,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e879248a-9567-47e7-b0a3-b9d5f6463c05" name="Changes" comment="Add all language features example">
-      <change afterPath="$PROJECT_DIR$/EzEngine.cpp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/EzError.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ROADMAP.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/CMakeLists.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Interpreter.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Interpreter.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Interpreter.h" beforeDir="false" afterPath="$PROJECT_DIR$/Interpreter.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Loader.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Loader.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Loader.h" beforeDir="false" afterPath="$PROJECT_DIR$/Loader.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/main.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -231,7 +224,7 @@
       <workItem from="1770412463331" duration="931000" />
       <workItem from="1773430950151" duration="3543000" />
       <workItem from="1773944649372" duration="1552000" />
-      <workItem from="1774427905711" duration="25672000" />
+      <workItem from="1774427905711" duration="27100000" />
     </task>
     <task id="LOCAL-00001" summary="Ignore Linux line endings">
       <option name="closed" value="true" />

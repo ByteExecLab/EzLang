@@ -797,30 +797,16 @@ void Interpreter::executeIdentifier() {
     const Token& identToken = m_tokens[m_pos];
     const std::string name = std::get<std::string>(identToken.value);
 
-    // User-defined word
     if (const auto itUser = m_words.find(name); itUser != m_words.end()) {
-        const auto&[body, arity] = itUser->second;
-
-        if (arity > 0 && static_cast<int>(m_stack.size()) < arity) {
-            throw std::runtime_error(
-                "[ERROR]: Word '" + name + "' expects " +
-                std::to_string(arity) + " argument(s) on the stack, but only " +
-                std::to_string(m_stack.size()) + " present"
-            );
-        }
-
         ++m_pos; // consume IDENTIFIER
+        const ControlSignal sig = invokeUserWord(name, itUser->second);
 
-        const ControlSignal sig = executeBlock(body);
-        if (sig == ControlSignal::Return) return; // RETURN inside word is weird, but we propagate
         if (sig == ControlSignal::Break || sig == ControlSignal::Continue) {
             m_controlSignal = sig;
         }
-
         return;
     }
 
-    // Variable load/store shortcut
     const auto next = peek(1);
     if (next && next->type == TokenType::LOAD_VARIABLE) {
         executeLoadVariable();
@@ -831,29 +817,16 @@ void Interpreter::executeIdentifier() {
         return;
     }
 
-    // Native Word
     if (const auto itNative = m_nativeWords.find(name); itNative != m_nativeWords.end()) {
-        auto&[arity, fn] = itNative->second;
+        ++m_pos; // consume IDENTIFIER
+        const ControlSignal sig = invokeNativeWord(name, itNative->second);
 
-        if (arity > 0 && static_cast<int>(m_stack.size()) < arity) {
-            throw std::runtime_error(
-                "[ERROR]: Native word '" + name + "' expects " +
-                std::to_string(arity) + " argument(s) on the stack, but only " +
-                std::to_string(m_stack.size()) + " present"
-            );
-        }
-
-        ++m_pos; // consume identifier
-
-        const ControlSignal sig = fn(*this);
-        if (sig == ControlSignal::Return) return;
         if (sig == ControlSignal::Break || sig == ControlSignal::Continue) {
             m_controlSignal = sig;
         }
         return;
     }
 
-    //Nothing matched
     throw std::runtime_error("[ERROR]: Unknown word '" + name + "'");
 }
 
@@ -955,6 +928,43 @@ void Interpreter::executeArrayEnd() {
 void Interpreter::executeStructStart() {
     consume(TokenType::STRUCT_START, "Expected '{'");
     m_structMarks.push_back(m_stack.size());
+}
+
+bool Interpreter::hasWord(const std::string &name) const {
+    return m_words.contains(name) || m_nativeWords.contains(name);
+}
+
+std::vector<StackValue> Interpreter::callWord(const std::string &name, const std::vector<StackValue> &args) {
+    const size_t stackBase = m_stack.size();
+
+    for (const auto& arg : args) {
+        m_stack.push(arg);
+    }
+
+    ControlSignal sig = ControlSignal::None;
+
+    if (const auto itUser = m_words.find(name); itUser != m_words.end()) {
+        sig = invokeUserWord(name, itUser->second);
+    } else if (const auto itNative = m_nativeWords.find(name); itNative != m_nativeWords.end()) {
+        sig = invokeNativeWord(name, itNative->second);
+    } else {
+        throw std::runtime_error("[ERROR]: Unknown word '" + name + "'");
+    }
+
+    if (sig == ControlSignal::Break) {
+        throw std::runtime_error("[ERROR]: 'break' propagated out of word '" + name + "'");
+    }
+    if (sig == ControlSignal::Continue) {
+        throw std::runtime_error("[ERROR]: 'continue' propagated out of word '" + name + "'");
+    }
+
+    std::vector<StackValue> outputs;
+    while (m_stack.size() > stackBase) {
+        outputs.push_back(m_stack.pop());
+    }
+
+    std::reverse(outputs.begin(), outputs.end());
+    return outputs;
 }
 
 void Interpreter::executeStructEnd() {
@@ -1362,6 +1372,42 @@ std::pair<std::vector<Token>, std::vector<Token>> Interpreter::collectIfElseEndi
 
     // If we reach this point, we ran out of tokens without closing the IF
     throw std::runtime_error("[ERROR]: Unbalanced IF: missing ENDIF before end of input");
+}
+
+ControlSignal Interpreter::invokeUserWord(const std::string& name, const WordDef& def) {
+    if (def.arity > 0 && static_cast<int>(m_stack.size()) < def.arity) {
+        throw std::runtime_error(
+            "[ERROR]: Word '" + name + "' expects " +
+            std::to_string(def.arity) + " argument(s) on the stack, but only " +
+            std::to_string(m_stack.size()) + " present"
+        );
+    }
+
+    const ControlSignal sig = executeBlock(def.body);
+
+    if (sig == ControlSignal::Return) {
+        return ControlSignal::None;
+    }
+
+    return sig;
+}
+
+ControlSignal Interpreter::invokeNativeWord(const std::string& name, NativeWord& def) {
+    if (def.arity > 0 && static_cast<int>(m_stack.size()) < def.arity) {
+        throw std::runtime_error(
+            "[ERROR]: Native word '" + name + "' expects " +
+            std::to_string(def.arity) + " argument(s) on the stack, but only " +
+            std::to_string(m_stack.size()) + " present"
+        );
+    }
+
+    const ControlSignal sig = def.fn(*this);
+
+    if (sig == ControlSignal::Return) {
+        return ControlSignal::None;
+    }
+
+    return sig;
 }
 
 std::vector<Token> Interpreter::collectBlockUntilEnd() {

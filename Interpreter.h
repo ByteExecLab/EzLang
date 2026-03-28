@@ -201,6 +201,9 @@ public:
 
     std::string buildRuntimeErrorContext(size_t line, size_t column) const;
 
+    bool hasWord(const std::string& name) const;
+    std::vector<StackValue> callWord(const std::string& name, const std::vector<StackValue>& args = {});
+
     /**
      * @var executionMap
      * @brief Maps token types to their associated execution logic in the interpreter.
@@ -398,6 +401,9 @@ private:
      * @see Interpreter::getVariable()
      */
     void pushFrame();
+
+    ControlSignal invokeUserWord(const std::string& name, const WordDef& def);
+    ControlSignal invokeNativeWord(const std::string& name, NativeWord& def);
 
     /**
      * @brief Removes the top frame from the call stack of the interpreter.
